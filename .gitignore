@@ -5,3 +5,7 @@ reference/
 
 # Build plan stays private
 PLAN.md
+
+# Tools
+node_modules/
+.npm-cache/
