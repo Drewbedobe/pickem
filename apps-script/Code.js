@@ -18,6 +18,7 @@ const ACTIONS = {
   logout: handleLogout,
   week: handleWeek,
   savePicks: handleSavePicks,
+  adminTask: handleAdminTask,
 };
 
 function doGet() {

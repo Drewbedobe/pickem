@@ -9,7 +9,15 @@
  */
 
 const TZ = 'America/Chicago';
-const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+// ESPN blocks Google's servers on site.api.espn.com but not on site.web.api.espn.com.
+const ESPN_SCOREBOARDS = [
+  'https://site.web.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',
+  'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',
+];
+const ESPN_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+  Accept: 'application/json',
+};
 const LAST_REGULAR_SEASON_WEEK = 18;
 
 function syncTick() {
@@ -32,11 +40,7 @@ function syncTick() {
 /** Loads or refreshes one week's games from ESPN into the Games tab. */
 function syncWeekGames(week) {
   const config = getConfig();
-  const season = Number(config.season);
-  const url = `${ESPN_SCOREBOARD}?seasontype=2&week=${week}&dates=${season}`;
-  const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-  if (response.getResponseCode() !== 200) throw new Error(`ESPN returned ${response.getResponseCode()} for week ${week}`);
-  const events = JSON.parse(response.getContentText()).events || [];
+  const events = fetchEspnWeek(Number(config.season), week);
 
   const table = readTable('Games');
   const existing = {};
@@ -71,6 +75,17 @@ function syncWeekGames(week) {
     const differs = Object.keys(changes).some((k) => String(row[k]) !== String(changes[k]));
     if (differs) updateRow(table, row, changes);
   });
+}
+
+function fetchEspnWeek(season, week) {
+  const problems = [];
+  for (const base of ESPN_SCOREBOARDS) {
+    const url = `${base}?seasontype=2&week=${week}&dates=${season}`;
+    const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: ESPN_HEADERS });
+    if (response.getResponseCode() === 200) return JSON.parse(response.getContentText()).events || [];
+    problems.push(`${base} returned ${response.getResponseCode()}`);
+  }
+  throw new Error(`Could not load week ${week} from ESPN: ${problems.join('; ')}`);
 }
 
 function gameFieldsFromEspn(event) {
