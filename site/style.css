@@ -16,6 +16,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html { -webkit-text-size-adjust: 100%; }
 
@@ -321,4 +322,94 @@ body.sheet-open { overflow: hidden; }
   color: var(--text);
   font-size: 1.15rem;
   font-weight: 700;
+}
+
+/* ---- This Week's Picks ---- */
+.status-block { margin-bottom: 32px; }
+.status-block h2, main section h2 { font-size: 1.4rem; margin: 8px 0; }
+
+.done-group {
+  background: var(--surface); border: 1px solid var(--border); border-left-width: 6px;
+  border-radius: 10px; padding: 10px 14px; margin-top: 10px;
+}
+.done-group h3 { margin: 0 0 4px; font-size: 1.1rem; }
+.done-group p { margin: 0; }
+.done-group .count { color: var(--muted); font-weight: 500; }
+.done-group.done { border-left-color: var(--ok); }
+.done-group.partial { border-left-color: #c77700; }
+.done-group.none { border-left-color: #9aa1aa; }
+
+.winner-banner {
+  background: #fff8e1; border: 2px solid #c99a00; border-radius: var(--radius);
+  padding: 12px 16px; margin-bottom: 12px; font-size: 1.15rem;
+}
+.grid-help { color: var(--muted); font-size: 1rem; }
+
+.grid-wrap {
+  overflow: auto;
+  max-height: 75vh;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  margin: 0 -4px 24px;
+}
+.pick-grid { border-collapse: separate; border-spacing: 0; font-size: 1rem; }
+.pick-grid th, .pick-grid td {
+  padding: 6px 8px;
+  text-align: center;
+  border-bottom: 1px solid #e3e6ea;
+  white-space: nowrap;
+  background: var(--surface);
+}
+.pick-grid thead th { position: sticky; top: 0; z-index: 2; font-weight: 700; }
+.pick-grid thead .totals-row th { top: 40px; border-bottom: 2px solid var(--border); font-size: 1.05rem; }
+.pick-grid .sticky-col { position: sticky; left: 0; z-index: 1; text-align: left; border-right: 2px solid var(--border); }
+.pick-grid thead .corner { z-index: 3; }
+.pick-grid .me { background: #eaf1fb; }
+.pick-grid .leader { color: var(--ok); }
+.pick-grid tr.won th, .pick-grid tr.won td { background: var(--ok-bg); color: var(--ok); font-weight: 800; }
+.pick-grid tr.lost td, .pick-grid tr.lost th { color: #8a929c; }
+.pick-grid tr.game-end th, .pick-grid tr.game-end td { border-bottom: 2px solid var(--border); }
+.pick-grid .day-row th, .pick-grid .day-row td { background: #f1f3f6; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+.team-cell { font-weight: 700; padding-left: 10px !important; }
+.pick-grid td { min-width: 52px; }
+.grid-spread { display: block; font-weight: 500; font-size: 0.8rem; color: var(--muted); line-height: 1.1; }
+.name-link {
+  background: none; border: none; padding: 6px 2px; min-height: 28px;
+  color: var(--brand); font-weight: 700; text-decoration: underline;
+}
+
+.player-picks { list-style: none; padding: 0; margin: 0; }
+.player-picks li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #e3e6ea; }
+.player-picks .pts { min-width: 2.2em; font-size: 1.4rem; font-weight: 800; text-align: right; }
+.player-picks .team { flex: 1; font-size: 1.2rem; font-weight: 600; }
+.result { font-weight: 700; }
+.result.won { color: var(--ok); }
+.result.lost { color: var(--error); }
+.result.pending { color: var(--muted); font-weight: 500; }
+
+/* ---- Season Standings ---- */
+.standings { list-style: none; padding: 0; margin: 0 0 24px; }
+.standings li { margin-bottom: 8px; }
+.standing-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px;
+  padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); color: var(--text); text-align: left;
+}
+.standings li.me .standing-row { border: 2px solid var(--brand); background: #eaf1fb; }
+.standing-row .rank { min-width: 2.6em; font-weight: 700; color: var(--muted); }
+.standing-row .name { flex: 1; font-size: 1.25rem; font-weight: 700; }
+.standing-row .total { font-size: 1.35rem; font-weight: 800; }
+.week-breakdown[hidden] { display: none; }
+.week-breakdown { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 6px 4px; }
+.week-chip { background: #eef0f3; border-radius: 999px; padding: 4px 10px; font-size: 1rem; }
+.week-chip.won { background: #fff8e1; }
+.weekly-winners { padding-left: 1.2em; }
+.weekly-winners li { margin-bottom: 4px; }
+
+.wide-only { display: none; }
+@media (min-width: 900px) {
+  .wide-only { display: block; }
+  body[data-screen="grid"] main,
+  body[data-screen="standings"] main { max-width: 1100px; }
 }

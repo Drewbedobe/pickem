@@ -26,12 +26,17 @@ function route() {
   const signedIn = Boolean(state.session);
 
   if (!signedIn) {
+    document.body.dataset.screen = 'signin';
     const pin = hash.match(/^#\/pin\/(.+)$/);
     if (pin) showPin(decodeURIComponent(pin[1]));
     else showWhosPlaying();
     return;
   }
-  if (hash === '#/picks') showPicks();
+  const screen = { '#/picks': 'picks', '#/grid': 'grid', '#/standings': 'standings' }[hash] || 'home';
+  document.body.dataset.screen = screen;
+  if (screen === 'picks') showPicks();
+  else if (screen === 'grid') showGrid();
+  else if (screen === 'standings') showStandings();
   else showHome(); // signed-in players skip the sign-in screens
 }
 
@@ -66,6 +71,8 @@ function signOut() {
   const token = storage.get(TOKEN_KEY);
   storage.remove(TOKEN_KEY);
   storage.remove(WEEK_KEY);
+  storage.remove(GRID_KEY);
+  storage.remove(STANDINGS_KEY);
   state.week = null;
   setSession(null);
   if (token) api('logout', { token }).catch(() => {});

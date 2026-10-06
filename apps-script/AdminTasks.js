@@ -23,6 +23,76 @@ const ADMIN_TASKS = {
     return taskStatus();
   },
   status: () => taskStatus(),
+  /**
+   * Loads a week played before the site from the old spreadsheet:
+   * games come from ESPN (with results), spreads/records/picks from the sheet.
+   * req: { week, spreadSource, games: [{ teams: [a, b], favorite, spread, records: { team: "2-1" } }],
+   *        picks: [{ name, team, points }] }
+   */
+  importWeek: (req) => {
+    const week = Number(req.week);
+    withLock(() => {
+      syncWeekGames(week);
+      const games = readTable('Games');
+      const weekRows = games.rows.filter((g) => Number(g.week) === week);
+      (req.games || []).forEach((sheetGame) => {
+        const row = weekRows.find((g) => sheetGame.teams.indexOf(g.away_team) >= 0 && sheetGame.teams.indexOf(g.home_team) >= 0);
+        if (!row) throw new UserError(`No ESPN game in week ${week} for ${sheetGame.teams.join(' vs ')}`);
+        updateRow(games, row, {
+          favorite: sheetGame.favorite || '',
+          spread: sheetGame.favorite ? Math.abs(Number(sheetGame.spread)) : '',
+          spread_source: sheetGame.favorite ? req.spreadSource || '' : '',
+          away_record: sheetGame.records[row.away_team] || row.away_record,
+          home_record: sheetGame.records[row.home_team] || row.home_record,
+        });
+      });
+
+      const byName = {};
+      readTable('Players').rows.forEach((p) => (byName[String(p.name).trim().toLowerCase()] = String(p.player_id)));
+      const picks = readTable('Picks');
+      const existing = {};
+      picks.rows.forEach((p) => {
+        if (Number(p.week) === week) existing[`${p.player_id}|${p.game_id}`] = p;
+      });
+      const now = new Date();
+      const toAdd = [];
+      (req.picks || []).forEach((pick) => {
+        const playerId = byName[String(pick.name).trim().toLowerCase()];
+        if (!playerId) throw new UserError(`Unknown player ${pick.name}`);
+        const game = weekRows.find((g) => g.away_team === pick.team || g.home_team === pick.team);
+        if (!game) throw new UserError(`No week ${week} game for ${pick.team}`);
+        const fields = { picked_team: pick.team, points: Number(pick.points), updated_at: now, updated_by: 'import' };
+        const row = existing[`${playerId}|${game.game_id}`];
+        if (row) updateRow(picks, row, fields);
+        else toAdd.push(Object.assign({ week, player_id: playerId, game_id: String(game.game_id) }, fields));
+      });
+      appendRecords('Picks', toAdd);
+      recordWeeklyTotals(week);
+    });
+    return taskStatus();
+  },
+  /** Loads weekly totals for weeks before the site. req.totals: [{ week, name, points }] */
+  importTotals: (req) => {
+    withLock(() => {
+      const byName = {};
+      readTable('Players').rows.forEach((p) => (byName[String(p.name).trim().toLowerCase()] = String(p.player_id)));
+      const totals = readTable('WeeklyTotals');
+      const existing = {};
+      totals.rows.forEach((r) => {
+        if (String(r.source).trim() === 'imported') existing[`${Number(r.week)}|${r.player_id}`] = r;
+      });
+      const toAdd = [];
+      (req.totals || []).forEach((t) => {
+        const playerId = byName[String(t.name).trim().toLowerCase()];
+        if (!playerId) throw new UserError(`Unknown player ${t.name}`);
+        const row = existing[`${Number(t.week)}|${playerId}`];
+        if (row) updateRow(totals, row, { points: Number(t.points) });
+        else toAdd.push({ week: Number(t.week), player_id: playerId, points: Number(t.points), correct_picks: '', source: 'imported' });
+      });
+      appendRecords('WeeklyTotals', toAdd);
+    });
+    return taskStatus();
+  },
   /** Replaces the rules text and commissioner name with the ones in Private.js. */
   applyPrivateSettings: () => {
     withLock(() => {

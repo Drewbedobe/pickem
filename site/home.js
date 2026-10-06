@@ -7,11 +7,13 @@ function showHome() {
     <div class="message" id="week-status">${weekStatusHtml(state.week || cachedWeek())}</div>
     <nav class="home-buttons">
       <button type="button" class="big-btn" id="go-picks">Make My Picks</button>
-      <button type="button" class="big-btn" disabled>This Week's Picks <small>Coming soon</small></button>
-      <button type="button" class="big-btn" disabled>Season Standings <small>Coming soon</small></button>
+      <button type="button" class="big-btn" id="go-grid">This Week's Picks</button>
+      <button type="button" class="big-btn" id="go-standings">Season Standings</button>
     </nav>
   `);
   document.getElementById('go-picks').addEventListener('click', () => go('#/picks'));
+  document.getElementById('go-grid').addEventListener('click', () => go('#/grid'));
+  document.getElementById('go-standings').addEventListener('click', () => go('#/standings'));
 
   loadWeek()
     .then((week) => {

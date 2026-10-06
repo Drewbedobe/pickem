@@ -26,8 +26,14 @@ function syncTick() {
   if (!week) return;
   withLock(() => syncWeekGames(week));
 
+  // Last week may still have games finishing (e.g. if the week was moved on by hand).
+  const previous = weekGames(week - 1);
+  if (previous.some((g) => g.status !== 'post')) withLock(() => syncWeekGames(week - 1));
+  if (previous.length) withLock(() => recordWeeklyTotals(week - 1));
+
   const games = weekGames(week);
   const allFinal = games.length > 0 && games.every((g) => g.status === 'post');
+  if (allFinal) withLock(() => recordWeeklyTotals(week));
   if (allFinal && week < LAST_REGULAR_SEASON_WEEK) {
     withLock(() => {
       setConfigValue('current_week', week + 1);

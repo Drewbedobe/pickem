@@ -18,6 +18,8 @@ const ACTIONS = {
   logout: handleLogout,
   week: handleWeek,
   savePicks: handleSavePicks,
+  grid: handleGrid,
+  standings: handleStandings,
   adminTask: handleAdminTask,
 };
 

@@ -35,6 +35,15 @@ function appendRecord(tabName, record) {
   sheet.appendRow(headers.map((h) => (h in record ? record[h] : '')));
 }
 
+/** Appends many rows in one write (much faster than one at a time). */
+function appendRecords(tabName, records) {
+  if (!records.length) return;
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+  const values = records.map((record) => headers.map((h) => (h in record ? record[h] : '')));
+  sheet.getRange(sheet.getLastRow() + 1, 1, values.length, headers.length).setValues(values);
+}
+
 /** Only call inside withLock, right after reading, so row numbers are current. */
 function deleteRow(table, row) {
   table.sheet.deleteRow(row._row);
