@@ -21,7 +21,7 @@ function handleLogin(req) {
   return withLock(() => {
     const players = readTable('Players');
     const player = findActivePlayer(players, req.playerId);
-    if (!player.pin_hash) throw new UserError("You haven't made a PIN yet. Go back and tap your name again.");
+    if (!player.pin_hash) throw new UserError("You haven't made a PIN yet. Go back and tap your name again.", 'no_pin');
 
     const now = new Date();
     const pausedUntil = player.paused_until ? new Date(player.paused_until) : null;
@@ -50,7 +50,7 @@ function handleCreatePin(req) {
   return withLock(() => {
     const players = readTable('Players');
     const player = findActivePlayer(players, req.playerId);
-    if (player.pin_hash) throw new UserError('You already have a PIN. Go back and tap your name to enter it.');
+    if (player.pin_hash) throw new UserError('You already have a PIN. Go back and tap your name to enter it.', 'has_pin');
     const salt = Utilities.getUuid();
     updateRow(players, player, { pin_salt: salt, pin_hash: hashPin(pin, salt), failed_tries: 0, paused_until: '' });
     return startSession(player);
@@ -99,7 +99,7 @@ function requirePlayer(token) {
 function startSession(player) {
   const token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
   const now = new Date();
-  appendRow(readTable('Devices'), { token_hash: hashToken(token), player_id: player.player_id, created_at: now, last_seen_at: now });
+  appendRecord('Devices', { token_hash: hashToken(token), player_id: player.player_id, created_at: now, last_seen_at: now });
   const config = getConfig();
   return {
     token,

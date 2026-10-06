@@ -15,17 +15,23 @@ function readTable(name) {
   return { sheet, headers, rows };
 }
 
+/** Changes some fields of one row, written back to the sheet in a single call. */
 function updateRow(table, row, fields) {
   Object.keys(fields).forEach((key) => {
-    const col = table.headers.indexOf(key);
-    if (col < 0) throw new Error(`Column ${key} missing from ${table.sheet.getName()}`);
-    table.sheet.getRange(row._row, col + 1).setValue(fields[key]);
+    if (table.headers.indexOf(key) < 0) throw new Error(`Column ${key} missing from ${table.sheet.getName()}`);
     row[key] = fields[key];
   });
+  table.sheet.getRange(row._row, 1, 1, table.headers.length).setValues([table.headers.map((h) => row[h])]);
 }
 
 function appendRow(table, record) {
   table.sheet.appendRow(table.headers.map((h) => (h in record ? record[h] : '')));
+}
+
+/** Appends without reading the tab first, using the headers defined in Setup.js. */
+function appendRecord(tabName, record) {
+  const headers = TABS.find((t) => t.name === tabName).headers;
+  SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName).appendRow(headers.map((h) => (h in record ? record[h] : '')));
 }
 
 /** Only call inside withLock, right after reading, so row numbers are current. */

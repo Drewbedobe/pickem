@@ -1,17 +1,34 @@
 // Sign-in screens: "Who's playing?" name list, PIN pad, and first-time PIN creation.
 
 async function showWhosPlaying() {
-  renderLoading();
+  // Show the remembered list instantly, then refresh it from the server.
+  const cached = readJson(PLAYERS_KEY);
+  if (cached && cached.players) renderNameList(cached);
+  else renderLoading();
+
   let data;
   try {
-    data = await api('players');
+    data = await loadPlayers();
   } catch (err) {
-    renderError(err.message, showWhosPlaying);
+    if (!cached) renderError(err.message, showWhosPlaying);
     return;
   }
+  const changed = !cached || JSON.stringify(cached.players) !== JSON.stringify(data.players);
+  const stillOnList = ['', '#', '#/', '#/who'].includes(location.hash) && !state.session;
+  if (changed && stillOnList) renderNameList(data);
+}
+
+async function loadPlayers() {
+  const data = await api('players');
   state.players = data.players;
   state.commissionerName = data.commissionerName;
+  storage.set(PLAYERS_KEY, JSON.stringify(data));
+  return data;
+}
 
+function renderNameList(data) {
+  state.players = data.players;
+  state.commissionerName = data.commissionerName;
   render(`
     <h1>Who's playing?</h1>
     <p class="lead">Tap your name.</p>
@@ -28,9 +45,7 @@ async function showPin(playerId) {
   if (!state.players) {
     renderLoading();
     try {
-      const data = await api('players');
-      state.players = data.players;
-      state.commissionerName = data.commissionerName;
+      await loadPlayers();
     } catch (err) {
       renderError(err.message, () => showPin(playerId));
       return;
@@ -50,7 +65,15 @@ function enterPin(player) {
     player,
     title: `Hi ${player.name}!`,
     prompt: 'Enter your 4-digit PIN.',
-    onComplete: (pin) => api('login', { playerId: player.id, pin }).then(signedIn),
+    onComplete: (pin) =>
+      api('login', { playerId: player.id, pin })
+        .then(signedIn)
+        .catch((err) => {
+          // The remembered name list was out of date: this player has no PIN yet.
+          if (err.code !== 'no_pin') throw err;
+          player.hasPin = false;
+          createPin(player);
+        }),
     help: forgotPinHelp(),
   });
 }
@@ -71,7 +94,15 @@ function createPin(player) {
             showPinMessage("Those didn't match. Let's start over: make up a 4-digit PIN.");
             return Promise.resolve();
           }
-          return api('createPin', { playerId: player.id, pin: first }).then(signedIn);
+          return api('createPin', { playerId: player.id, pin: first })
+            .then(signedIn)
+            .catch((err) => {
+              // The remembered name list was out of date: this player already has a PIN.
+              if (err.code !== 'has_pin') throw err;
+              player.hasPin = true;
+              enterPin(player);
+              showPinMessage('You already have a PIN. Please enter it.');
+            });
         },
       });
       return Promise.resolve();
@@ -133,7 +164,7 @@ function pinPad({ player, title, prompt, onComplete, help }) {
   const submit = () => {
     busy = true;
     message.className = 'pin-message';
-    message.textContent = 'Checking…';
+    message.textContent = 'Checking… this takes a few seconds.';
     onComplete(digits).catch((err) => {
       busy = false;
       digits = '';

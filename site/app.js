@@ -2,6 +2,8 @@
 // #/pin/P05, …) so the phone's Back button behaves as people expect.
 
 const TOKEN_KEY = 'pickem.token';
+const SESSION_KEY = 'pickem.session'; // last known name + rules, so Home shows instantly
+const PLAYERS_KEY = 'pickem.players'; // last known name list, so sign-in shows instantly
 
 const state = {
   session: null, // { player, rulesText, commissionerName } once signed in
@@ -31,6 +33,8 @@ function route() {
 
 function setSession(session) {
   state.session = session;
+  if (session) storage.set(SESSION_KEY, JSON.stringify({ player: session.player, rulesText: session.rulesText, commissionerName: session.commissionerName }));
+  else storage.remove(SESSION_KEY);
   const topbar = document.getElementById('topbar');
   const rules = document.getElementById('rules');
 
@@ -64,20 +68,52 @@ function signOut() {
 
 async function start() {
   const token = storage.get(TOKEN_KEY);
-  if (token) {
-    renderLoading();
-    try {
-      setSession(await api('me', { token }));
-    } catch (err) {
-      if (err.code === 'signed_out') {
-        storage.remove(TOKEN_KEY);
-      } else {
-        renderError(err.message, start);
-        return;
-      }
+  if (!token) {
+    route();
+    return;
+  }
+
+  // Show Home right away from what this device remembers, then check with the
+  // server in the background (each server call takes a couple of seconds).
+  const cached = readJson(SESSION_KEY);
+  if (cached && cached.player) {
+    setSession(cached);
+    route();
+    refreshSession(token);
+    return;
+  }
+
+  renderLoading();
+  try {
+    setSession(await api('me', { token }));
+  } catch (err) {
+    if (err.code !== 'signed_out') {
+      renderError(err.message, start);
+      return;
     }
+    storage.remove(TOKEN_KEY);
   }
   route();
+}
+
+async function refreshSession(token) {
+  try {
+    const fresh = await api('me', { token });
+    const nameChanged = fresh.player.name !== state.session.player.name;
+    setSession(fresh);
+    if (nameChanged) route();
+  } catch (err) {
+    // Signed out elsewhere (e.g. the commissioner reset this device): back to sign-in.
+    if (err.code === 'signed_out') signOut();
+  }
+}
+
+function readJson(key) {
+  try {
+    return JSON.parse(storage.get(key) || 'null');
+  } catch (err) {
+    return null;
+  }
 }
 
 window.addEventListener('hashchange', route);
