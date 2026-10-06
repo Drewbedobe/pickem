@@ -1,0 +1,7 @@
+# Private reference files (real names, contact info). Never upload to the public repo.
+reference/
+
+.DS_Store
+
+# Build plan stays private
+PLAN.md
