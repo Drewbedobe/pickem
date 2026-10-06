@@ -71,6 +71,7 @@ function setup() {
   });
 
   ensureConfigKeys(ss.getSheetByName('Config'));
+  keepAsText('Games', ['away_record', 'home_record']);
   if (typeof PRIVATE_SEED !== 'undefined') seedFromPrivate(PRIVATE_SEED);
 
   // Remove the blank starter tab Google creates with a new spreadsheet.
@@ -94,6 +95,19 @@ function ensureHeaders(sheet, tab) {
     sheet.getRange(1, col).setValue(h).setFontWeight('bold').setBackground('#e8eaed');
   });
   sheet.getRange(1, 1).setNote(tab.note);
+}
+
+/**
+ * Formats whole columns as plain text, so values like "3-1" stay team records
+ * instead of Sheets turning them into dates (March 1).
+ */
+function keepAsText(tabName, headers) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
+  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+  headers.forEach((h) => {
+    const col = header.indexOf(h) + 1;
+    if (col > 0) sheet.getRange(1, col, sheet.getMaxRows(), 1).setNumberFormat('@');
+  });
 }
 
 /** Adds any Config keys that were introduced after the tab was first created. */

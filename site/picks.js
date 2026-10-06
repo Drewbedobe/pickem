@@ -1,5 +1,6 @@
-// Make My Picks: one card per game, big team buttons, a points picker that
-// swaps instead of allowing duplicates, and automatic saving on every tap.
+// Make My Picks: one card per game, big team buttons, a points picker where
+// taking a used number moves it (so duplicates can't happen), and automatic
+// saving on every tap.
 
 const saver = { pending: new Map(), inFlight: false };
 
@@ -51,14 +52,16 @@ function renderPicks(week) {
     ${locked
       ? `<div class="message">Picks are locked. The deadline was ${esc(week.deadlineLabel)}.</div>`
       : `<p class="lead">Tap the team you think will win each game. Then give each game points from 1 to ${n}: more points for games you're more sure about. Each number is used once.</p>
-         <p class="due">Due <strong>${esc(week.deadlineLabel)}</strong>. Every tap saves automatically.</p>`}
+         <p class="due">Every tap saves automatically. Picks automatically submit at <strong>${esc(week.deadlineLabel)}</strong>.</p>`}
     ${days.map((d) => `
       <h2 class="day-heading">${esc(d.day)}</h2>
       ${d.games.map((g) => gameCardHtml(g, week, locked)).join('')}
     `).join('')}
     ${locked ? '' : `
+      <button type="button" class="secondary-btn clear-all-btn" data-action="clear-all">Clear all my picks</button>
       <div class="pick-footer" role="status">
         <div id="pick-progress"></div>
+        <div id="pick-notice" class="pick-notice"></div>
         <div id="save-status" class="save-status"></div>
       </div>`}
   `);
@@ -68,9 +71,7 @@ function renderPicks(week) {
 
 function gameCardHtml(g, week, locked) {
   const pick = week.picks[g.id] || {};
-  const spread = g.favorite && g.spread !== null
-    ? `Spread: ${esc(teamNickname(g.favorite))} by ${esc(g.spread)}${g.spreadSource ? ` (${esc(g.spreadSource)})` : ''}`
-    : 'Spread: not available';
+  const hasSpread = g.favorite && g.spread !== null;
   return `
     <section class="game-card" data-game="${esc(g.id)}">
       <div class="game-time">${esc(g.time)}</div>
@@ -83,7 +84,7 @@ function gameCardHtml(g, week, locked) {
         aria-label="${pick.points ? `${pick.points} points. Tap to change.` : 'Choose points'}">
         ${pick.points ? `<strong>${pick.points}</strong> points` : 'Choose points'}
       </button>
-      <div class="spread">${spread} · for reference only</div>
+      ${hasSpread ? `<div class="spread-note">Spread from ${esc(g.spreadSource || 'sportsbook')} · for reference only</div>` : ''}
     </section>`;
 }
 
@@ -97,6 +98,7 @@ function teamButtonHtml(game, team, pickedTeam, locked) {
       <span class="team-city">${esc(teamCity(team.name))}</span>
       <span class="team-name">${esc(teamNickname(team.name))}</span>
       ${team.record ? `<span class="team-record">${esc(team.record)}</span>` : ''}
+      ${game.favorite === team.name && game.spread !== null ? `<span class="team-spread">Spread −${esc(game.spread)}</span>` : ''}
       <span class="team-check">${selected ? '✓ Your pick' : ''}</span>
     </button>`;
 }
@@ -108,6 +110,10 @@ function bindPicks() {
     const action = target.dataset.action;
     if (action === 'home') {
       go('#/home');
+      return;
+    }
+    if (action === 'clear-all') {
+      if (!stopIfLocked()) confirmClearAll();
       return;
     }
     const card = target.closest('[data-game]');
@@ -132,27 +138,83 @@ function chooseTeam(gameId, team) {
   pick.team = team;
   state.week.picks[gameId] = pick;
   refreshCards([gameId]);
+  setNotice('');
   queueSave([gameId]);
 }
 
 function setPoints(gameId, value) {
   const picks = state.week.picks;
   const pick = picks[gameId] || { team: '', points: null };
-  const old = pick.points || null;
-  if (old === value) return;
+  if ((pick.points || null) === value) return;
   const changed = [gameId];
+  let notice = '';
   if (value !== null) {
-    // Swap: the game that had this number takes this game's old number (or none).
+    // The number moves here; the game that had it is left without points.
     const otherId = Object.keys(picks).find((id) => id !== gameId && picks[id].points === value);
     if (otherId) {
-      picks[otherId].points = old;
+      picks[otherId].points = null;
       changed.push(otherId);
+      const label = gameLabel(otherId);
+      notice = `${value} moved here from the ${label} game. Pick a new number for the ${label} game.`;
     }
   }
   pick.points = value;
   picks[gameId] = pick;
   refreshCards(changed);
+  setNotice(notice);
   queueSave(changed);
+}
+
+/** Short name for a game: the team picked, or both teams if none picked yet. */
+function gameLabel(gameId) {
+  const p = state.week.picks[gameId];
+  const g = state.week.games.find((x) => x.id === gameId);
+  if (p && p.team) return teamNickname(p.team);
+  return g ? `${teamNickname(g.away.name)}/${teamNickname(g.home.name)}` : '';
+}
+
+function setNotice(text) {
+  const box = document.getElementById('pick-notice');
+  if (box) box.textContent = text || '';
+}
+
+function confirmClearAll() {
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-backdrop';
+  sheet.innerHTML = `
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <h2 id="sheet-title">Clear all your Week ${state.week.week} picks?</h2>
+      <p class="sheet-help">This removes every team and every points number so you can start over.</p>
+      <div class="sheet-actions stacked">
+        <button type="button" class="big-btn danger-btn" data-sheet="yes">Yes, clear everything</button>
+        <button type="button" class="secondary-btn" data-sheet="no">No, go back</button>
+      </div>
+    </div>`;
+  document.body.appendChild(sheet);
+  document.body.classList.add('sheet-open');
+  const close = () => {
+    sheet.remove();
+    document.body.classList.remove('sheet-open');
+    document.onkeydown = null;
+  };
+  sheet.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-sheet]');
+    if (e.target === sheet || (btn && btn.dataset.sheet === 'no')) return close();
+    if (btn && btn.dataset.sheet === 'yes') {
+      close();
+      if (stopIfLocked()) return;
+      const ids = Object.keys(state.week.picks).filter((id) => state.week.picks[id].team || state.week.picks[id].points);
+      ids.forEach((id) => (state.week.picks[id] = { team: '', points: null }));
+      refreshCards(ids);
+      setNotice('All picks cleared.');
+      if (ids.length) queueSave(ids);
+      window.scrollTo(0, 0);
+    }
+  });
+  document.onkeydown = (e) => {
+    if (e.key === 'Escape') close();
+  };
+  sheet.querySelector('[data-sheet="no"]').focus();
 }
 
 function refreshCards(gameIds) {
@@ -189,12 +251,6 @@ function openPointsPicker(gameId) {
     const p = week.picks[id];
     if (p.points) ownerOf[p.points] = id;
   });
-  const labelFor = (id) => {
-    const p = week.picks[id];
-    const g = week.games.find((x) => x.id === id);
-    if (p && p.team) return teamNickname(p.team);
-    return g ? `${g.away.abbr} / ${g.home.abbr}` : '';
-  };
 
   const title = pick.team
     ? `Points for your ${teamNickname(pick.team)} pick`
@@ -208,8 +264,8 @@ function openPointsPicker(gameId) {
     } else if (owner === gameId) {
       buttons.push(`<button type="button" class="pt current" data-value="${value}" aria-label="${value}, this game"><span>${value}</span><small>This game</small></button>`);
     } else {
-      const label = labelFor(owner);
-      buttons.push(`<button type="button" class="pt used" data-value="${value}" aria-label="${value}, used on ${esc(label)}. Tap to swap."><span>${value}</span><small>${esc(label)}</small></button>`);
+      const label = gameLabel(owner);
+      buttons.push(`<button type="button" class="pt used" data-value="${value}" aria-label="${value}, used on ${esc(label)}. Tap to move it here."><span>${value}</span><small>${esc(label)}</small></button>`);
     }
   }
 
@@ -218,7 +274,7 @@ function openPointsPicker(gameId) {
   sheet.innerHTML = `
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
       <h2 id="sheet-title">${esc(title)}</h2>
-      <p class="sheet-help">Bold numbers are free. Grey numbers are already used; tapping one swaps it with that game.</p>
+      <p class="sheet-help">Numbers with a team name under them are already used. Tapping one moves it to this game, and that game will need a new number.</p>
       <div class="points-grid">${buttons.join('')}</div>
       <div class="sheet-actions">
         ${pick.points ? '<button type="button" class="secondary-btn" data-sheet="clear">Remove points</button>' : ''}

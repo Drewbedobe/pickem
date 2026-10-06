@@ -72,7 +72,7 @@ function syncWeekGames(week) {
         spread_source: fields.spread_source,
       });
     }
-    const differs = Object.keys(changes).some((k) => String(row[k]) !== String(changes[k]));
+    const differs = Object.keys(changes).some((k) => row[k] instanceof Date !== changes[k] instanceof Date || String(row[k]) !== String(changes[k]));
     if (differs) updateRow(table, row, changes);
   });
 }

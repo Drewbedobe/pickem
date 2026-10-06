@@ -23,6 +23,14 @@ const ADMIN_TASKS = {
     return taskStatus();
   },
   status: () => taskStatus(),
+  /** Replaces the rules text and commissioner name with the ones in Private.js. */
+  applyPrivateSettings: () => {
+    withLock(() => {
+      setConfigValue('rules_text', PRIVATE_SEED.rulesText);
+      setConfigValue('commissioner_name', PRIVATE_SEED.commissionerName);
+    });
+    return taskStatus();
+  },
 };
 
 function handleAdminTask(req) {

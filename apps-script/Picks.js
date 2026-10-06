@@ -103,8 +103,8 @@ function publicGame(g) {
     kickoff: kickoff.toISOString(),
     day: Utilities.formatDate(kickoff, TZ, 'EEEE, MMM d'),
     time: Utilities.formatDate(kickoff, TZ, "h:mm a 'CT'"),
-    away: { name: String(g.away_team), abbr: String(g.away_abbr || ''), record: String(g.away_record || '') },
-    home: { name: String(g.home_team), abbr: String(g.home_abbr || ''), record: String(g.home_record || '') },
+    away: { name: String(g.away_team), abbr: String(g.away_abbr || ''), record: recordText(g.away_record) },
+    home: { name: String(g.home_team), abbr: String(g.home_abbr || ''), record: recordText(g.home_record) },
     favorite: String(g.favorite || ''),
     spread: g.spread === '' ? null : Number(g.spread),
     spreadSource: String(g.spread_source || ''),
@@ -113,4 +113,10 @@ function publicGame(g) {
     homeScore: g.home_score === '' ? null : Number(g.home_score),
     winner: gameWinner(g),
   };
+}
+
+/** A team record like "3-1". Undoes Sheets' habit of turning "3-1" into March 1. */
+function recordText(value) {
+  if (value instanceof Date) return `${value.getMonth() + 1}-${value.getDate()}`;
+  return String(value || '');
 }
