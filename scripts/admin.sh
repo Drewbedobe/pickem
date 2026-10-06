@@ -4,6 +4,8 @@
 #   scripts/admin.sh setup
 #   scripts/admin.sh sync
 #   scripts/admin.sh setConfig current_week 5
+#   scripts/admin.sh resetPin Jared
+#   scripts/admin.sh clearPicks Jared
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -13,6 +15,8 @@ TASK="${1:?task name required}"
 
 if [ "$TASK" = "setConfig" ]; then
   BODY=$(python3 -c 'import json,sys; v=sys.argv[3]; print(json.dumps({"action":"adminTask","key":sys.argv[1],"task":"setConfig","configKey":sys.argv[2],"value":int(v) if v.isdigit() else v}))' "$KEY" "$2" "$3")
+elif [ "$TASK" = "resetPin" ] || [ "$TASK" = "clearPicks" ]; then
+  BODY=$(python3 -c 'import json,sys; print(json.dumps({"action":"adminTask","key":sys.argv[1],"task":sys.argv[2],"name":sys.argv[3]}))' "$KEY" "$TASK" "$2")
 else
   BODY=$(python3 -c 'import json,sys; print(json.dumps({"action":"adminTask","key":sys.argv[1],"task":sys.argv[2]}))' "$KEY" "$TASK")
 fi

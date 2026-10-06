@@ -23,6 +23,25 @@ const ADMIN_TASKS = {
     return taskStatus();
   },
   status: () => taskStatus(),
+  /** Clears a player's PIN and signs out all their devices. req: { name } */
+  resetPin: (req) => {
+    withLock(() => {
+      const players = readTable('Players');
+      const player = findPlayerByName(players, req.name);
+      updateRow(players, player, { pin_hash: '', pin_salt: '', failed_tries: 0, paused_until: '' });
+      deleteRowsWhere('Devices', (d) => String(d.player_id) === String(player.player_id));
+    });
+    return taskStatus();
+  },
+  /** Removes a player's picks for one week (default: the current week). req: { name, week? } */
+  clearPicks: (req) => {
+    withLock(() => {
+      const player = findPlayerByName(readTable('Players'), req.name);
+      const week = Number(req.week) || Number(getConfig().current_week);
+      deleteRowsWhere('Picks', (p) => Number(p.week) === week && String(p.player_id) === String(player.player_id));
+    });
+    return taskStatus();
+  },
   /**
    * Loads a week played before the site from the old spreadsheet:
    * games come from ESPN (with results), spreads/records/picks from the sheet.
@@ -129,4 +148,16 @@ function taskStatus() {
     players: readTable('Players').rows.filter((p) => isTrue(p.active) && isTrue(p.is_player)).length,
     timers: ScriptApp.getProjectTriggers().map((t) => t.getHandlerFunction()),
   };
+}
+
+function findPlayerByName(players, name) {
+  const player = players.rows.find((p) => String(p.name).trim().toLowerCase() === String(name || '').trim().toLowerCase());
+  if (!player) throw new UserError(`Unknown player ${name}`);
+  return player;
+}
+
+/** Deletes matching rows, bottom-up so row numbers stay valid. Call inside withLock. */
+function deleteRowsWhere(tabName, test) {
+  const table = readTable(tabName);
+  table.rows.filter(test).reverse().forEach((row) => table.sheet.deleteRow(row._row));
 }
