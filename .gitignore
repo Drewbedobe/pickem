@@ -10,3 +10,6 @@ PLAN.md
 node_modules/
 .npm-cache/
 tools/
+
+# Private seed data (names, rules with contact info). Uploaded to Google only.
+apps-script/Private.js

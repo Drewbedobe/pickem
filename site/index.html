@@ -3,16 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
   <title>Family Pick'em</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
-    <h1>🏈 Family Pick'em</h1>
-    <p id="status" class="status" role="status">Loading…</p>
+  <header class="site-header">
+    <div class="brand">🏈 Family Pick'em</div>
+    <div id="topbar" class="topbar" hidden></div>
+  </header>
+  <main id="app">
+    <p class="loading" role="status">Loading… this can take a few seconds.</p>
   </main>
+  <footer id="rules" class="rules" hidden></footer>
   <script src="config.js"></script>
   <script src="api.js"></script>
+  <script src="ui.js"></script>
+  <script src="signin.js"></script>
+  <script src="home.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

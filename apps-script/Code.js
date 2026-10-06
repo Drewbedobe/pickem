@@ -11,6 +11,11 @@
 
 const ACTIONS = {
   ping: handlePing,
+  players: handlePlayers,
+  login: handleLogin,
+  createPin: handleCreatePin,
+  me: handleMe,
+  logout: handleLogout,
 };
 
 function doGet() {
@@ -39,8 +44,16 @@ function handlePing() {
   };
 }
 
-/** An error whose message is safe and friendly enough to show to players. */
-class UserError extends Error {}
+/**
+ * An error whose message is safe and friendly enough to show to players.
+ * An optional code lets the website react (e.g. "signed_out" → show sign-in).
+ */
+class UserError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.code = code || '';
+  }
+}
 
 function respond(fn) {
   let body;
@@ -48,7 +61,7 @@ function respond(fn) {
     body = { ok: true, data: fn() };
   } catch (err) {
     if (err instanceof UserError) {
-      body = { ok: false, error: err.message };
+      body = { ok: false, error: err.message, code: err.code };
     } else {
       console.error(err && err.stack ? err.stack : err);
       body = { ok: false, error: 'Something went wrong on the server. Please try again.' };
