@@ -16,6 +16,8 @@ const ACTIONS = {
   createPin: handleCreatePin,
   me: handleMe,
   logout: handleLogout,
+  week: handleWeek,
+  savePicks: handleSavePicks,
 };
 
 function doGet() {
@@ -64,7 +66,7 @@ function respond(fn) {
       body = { ok: false, error: err.message, code: err.code };
     } else {
       console.error(err && err.stack ? err.stack : err);
-      body = { ok: false, error: 'Something went wrong on the server. Please try again.' };
+      body = { ok: false, error: 'Something went wrong on the server. Please try again.', code: 'server' };
     }
   }
   return ContentService.createTextOutput(JSON.stringify(body)).setMimeType(ContentService.MimeType.JSON);

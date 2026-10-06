@@ -7,6 +7,7 @@ const PLAYERS_KEY = 'pickem.players'; // last known name list, so sign-in shows 
 
 const state = {
   session: null, // { player, rulesText, commissionerName } once signed in
+  week: null, // this week's games and my picks
   players: null, // name list for the sign-in screen
   commissionerName: '',
 };
@@ -18,6 +19,9 @@ function go(hash) {
 
 function route() {
   document.onkeydown = null;
+  document.getElementById('app').onclick = null;
+  document.querySelectorAll('.sheet-backdrop').forEach((el) => el.remove());
+  document.body.classList.remove('sheet-open');
   const hash = location.hash || '#/';
   const signedIn = Boolean(state.session);
 
@@ -27,8 +31,8 @@ function route() {
     else showWhosPlaying();
     return;
   }
-  // Signed-in players skip the sign-in screens.
-  showHome();
+  if (hash === '#/picks') showPicks();
+  else showHome(); // signed-in players skip the sign-in screens
 }
 
 function setSession(session) {
@@ -61,6 +65,8 @@ function setSession(session) {
 function signOut() {
   const token = storage.get(TOKEN_KEY);
   storage.remove(TOKEN_KEY);
+  storage.remove(WEEK_KEY);
+  state.week = null;
   setSession(null);
   if (token) api('logout', { token }).catch(() => {});
   go('#/who');

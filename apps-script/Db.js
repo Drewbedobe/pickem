@@ -28,10 +28,11 @@ function appendRow(table, record) {
   table.sheet.appendRow(table.headers.map((h) => (h in record ? record[h] : '')));
 }
 
-/** Appends without reading the tab first, using the headers defined in Setup.js. */
+/** Appends without reading the whole tab, only its header row. */
 function appendRecord(tabName, record) {
-  const headers = TABS.find((t) => t.name === tabName).headers;
-  SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName).appendRow(headers.map((h) => (h in record ? record[h] : '')));
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+  sheet.appendRow(headers.map((h) => (h in record ? record[h] : '')));
 }
 
 /** Only call inside withLock, right after reading, so row numbers are current. */
@@ -55,7 +56,7 @@ function isTrue(value) {
 /** Runs fn while holding the script-wide lock, so simultaneous requests can't collide. */
 function withLock(fn) {
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(15000)) throw new UserError('The site is busy right now. Please try again.');
+  if (!lock.tryLock(15000)) throw new UserError('The site is busy right now. Please try again.', 'busy');
   try {
     return fn();
   } finally {

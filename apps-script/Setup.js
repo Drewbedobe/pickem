@@ -9,7 +9,7 @@ const TABS = [
   {
     name: 'Config',
     headers: ['key', 'value'],
-    note: 'Settings for the site. Safe to edit values in column B. Do not rename keys in column A.',
+    note: 'Settings for the site. Safe to edit values in column B. Do not rename keys in column A.\n\ncurrent_week: the week players are picking. Moves to the next week automatically once every game is final.\n\ndeadline_override: leave blank for the normal deadline (6:00 AM CT on the day of the first game), or enter a date and time to change it for the current week only.',
     rows: [
       ['season', 2026],
       ['commissioner_name', ''],
@@ -32,7 +32,7 @@ const TABS = [
   },
   {
     name: 'Games',
-    headers: ['week', 'game_id', 'kickoff', 'away_team', 'home_team', 'away_record', 'home_record', 'favorite', 'spread', 'spread_source', 'status', 'away_score', 'home_score', 'winner', 'winner_override'],
+    headers: ['week', 'game_id', 'kickoff', 'away_team', 'home_team', 'away_record', 'home_record', 'favorite', 'spread', 'spread_source', 'status', 'away_score', 'home_score', 'winner', 'winner_override', 'away_abbr', 'home_abbr'],
     note: 'One row per game, loaded from ESPN. To fix a result, type the winning team (or TIE) in winner_override.',
   },
   {
@@ -57,7 +57,10 @@ function setup() {
   ss.setSpreadsheetTimeZone('America/Chicago');
 
   TABS.forEach((tab) => {
-    if (ss.getSheetByName(tab.name)) return;
+    if (ss.getSheetByName(tab.name)) {
+      ensureHeaders(ss.getSheetByName(tab.name), tab);
+      return;
+    }
     const sheet = ss.insertSheet(tab.name);
     const header = sheet.getRange(1, 1, 1, tab.headers.length);
     header.setValues([tab.headers]).setFontWeight('bold').setBackground('#e8eaed');
@@ -74,8 +77,23 @@ function setup() {
   const starter = ss.getSheetByName('Sheet1');
   if (starter && starter.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(starter);
 
+  installTriggers();
+  if (Number(getConfig().current_week)) syncTick();
+
   ss.setActiveSheet(ss.getSheetByName('Config'));
   console.log('Setup complete: ' + ss.getSheets().map((s) => s.getName()).join(', '));
+}
+
+/** Adds any columns that were introduced after the tab was first created, and refreshes the note. */
+function ensureHeaders(sheet, tab) {
+  const width = Math.max(sheet.getLastColumn(), 1);
+  const existing = sheet.getRange(1, 1, 1, width).getValues()[0].map(String);
+  tab.headers.forEach((h) => {
+    if (existing.indexOf(h) >= 0) return;
+    const col = sheet.getLastColumn() + 1;
+    sheet.getRange(1, col).setValue(h).setFontWeight('bold').setBackground('#e8eaed');
+  });
+  sheet.getRange(1, 1).setNote(tab.note);
 }
 
 /** Adds any Config keys that were introduced after the tab was first created. */
