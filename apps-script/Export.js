@@ -291,3 +291,11 @@ function emailAfterDeadline() {
   emailWeekWorkbook(week);
   withLock(() => setConfigValue('emailed_week', week));
 }
+
+/**
+ * Run this from the Apps Script editor to email this week's spreadsheet now.
+ * (Running it the first time is also how the owner approves sending email.)
+ */
+function emailThisWeekNow() {
+  console.log(emailWeekWorkbook(Number(getConfig().current_week)));
+}
