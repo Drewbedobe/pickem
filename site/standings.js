@@ -32,7 +32,7 @@ function renderStandings(data) {
   render(`
     <button type="button" class="back-btn" data-action="home">← Home</button>
     <h1>Season Standings</h1>
-    <p class="lead">${throughText} Tap a name to see each week.</p>
+    <p class="lead">${throughText} Tap a name to see each week.${data.players.some((p) => (p.overridden || []).length) ? ' * = changed by the commissioner.' : ''}</p>
     <ol class="standings">
       ${data.players.map((p) => `
         <li class="${p.id === viewerId ? 'me' : ''}">
@@ -44,8 +44,10 @@ function renderStandings(data) {
           <div class="week-breakdown" hidden>
             ${data.weeks.map((w) => {
               const won = (winnersByWeek[w.week] || []).includes(p.name);
-              return `<span class="week-chip ${won ? 'won' : ''}">Week ${w.week}: <strong>${p.weeks[w.week]}</strong>${won ? ' 🏆' : ''}</span>`;
+              const changed = (p.overridden || []).includes(w.week) ? '*' : '';
+              return `<span class="week-chip ${won ? 'won' : ''}">Week ${w.week}: <strong>${p.weeks[w.week]}${changed}</strong>${won ? ' 🏆' : ''}</span>`;
             }).join('')}
+            ${(p.adjustments || []).map((a) => `<span class="week-chip adjust">Adjustment: <strong>${a.points > 0 ? '+' : ''}${a.points}</strong> (${esc(a.reason)})</span>`).join('')}
           </div>
         </li>`).join('')}
     </ol>

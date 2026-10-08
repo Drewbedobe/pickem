@@ -21,6 +21,19 @@ const ACTIONS = {
   grid: handleGrid,
   standings: handleStandings,
   adminTask: handleAdminTask,
+  adminOverview: handleAdminOverview,
+  adminResetPin: handleAdminResetPin,
+  adminWeek: handleAdminWeek,
+  adminSavePicks: handleAdminSavePicks,
+  adminTotals: handleAdminTotals,
+  adminSetWeekTotal: handleAdminSetWeekTotal,
+  adminClearWeekTotal: handleAdminClearWeekTotal,
+  adminAdjustments: handleAdminAdjustments,
+  adminAddAdjustment: handleAdminAddAdjustment,
+  adminDeleteAdjustment: handleAdminDeleteAdjustment,
+  adminGames: handleAdminGames,
+  adminSetResult: handleAdminSetResult,
+  adminSetDeadline: handleAdminSetDeadline,
 };
 
 function doGet() {

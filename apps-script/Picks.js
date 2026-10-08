@@ -50,50 +50,56 @@ function handleSavePicks(req) {
     if (deadline && new Date() >= deadline) {
       throw new UserError('Picks are locked. The deadline has passed.', 'locked');
     }
-
-    const gameById = {};
-    games.forEach((g) => (gameById[String(g.game_id)] = g));
-    const n = games.length;
-
-    const table = readTable('Picks');
-    const mine = {};
-    table.rows.forEach((p) => {
-      if (Number(p.week) === week && String(p.player_id) === String(player.player_id)) mine[String(p.game_id)] = p;
-    });
-
-    // Work out the player's full set of picks after the changes, and check it.
-    const after = {};
-    Object.keys(mine).forEach((id) => (after[id] = { team: String(mine[id].picked_team || ''), points: Number(mine[id].points) || null }));
-    changes.forEach((c) => {
-      const id = String(c.gameId);
-      const game = gameById[id];
-      if (!game) throw new UserError('That game is not part of this week. Please reload the page.', 'stale_week');
-      const team = String(c.team || '');
-      if (team && team !== game.away_team && team !== game.home_team) throw new UserError('That team is not in this game.');
-      const points = c.points === null || c.points === '' || c.points === undefined ? null : Number(c.points);
-      if (points !== null && !(Number.isInteger(points) && points >= 1 && points <= n)) {
-        throw new UserError(`Points must be a number from 1 to ${n}.`);
-      }
-      after[id] = { team, points };
-    });
-    const used = {};
-    Object.keys(after).forEach((id) => {
-      const p = after[id].points;
-      if (p === null || !gameById[id]) return;
-      if (used[p]) throw new UserError(`You used ${p} points twice. Please reload the page.`, 'conflict');
-      used[p] = true;
-    });
-
-    const now = new Date();
-    const by = player.player_id;
-    changes.forEach((c) => {
-      const id = String(c.gameId);
-      const fields = { picked_team: after[id].team, points: after[id].points === null ? '' : after[id].points, updated_at: now, updated_by: by };
-      if (mine[id]) updateRow(table, mine[id], fields);
-      else appendRecord('Picks', Object.assign({ week, player_id: player.player_id, game_id: id }, fields));
-    });
-    return { savedAt: now.toISOString() };
+    return applyPickChanges(week, games, player.player_id, changes, player.player_id);
   });
+}
+
+/**
+ * Checks and saves changes to one player's picks for one week. Call inside
+ * withLock. The deadline is checked by the caller (the commissioner skips it).
+ */
+function applyPickChanges(week, games, playerId, changes, by) {
+  const gameById = {};
+  games.forEach((g) => (gameById[String(g.game_id)] = g));
+  const n = games.length;
+
+  const table = readTable('Picks');
+  const mine = {};
+  table.rows.forEach((p) => {
+    if (Number(p.week) === week && String(p.player_id) === String(playerId)) mine[String(p.game_id)] = p;
+  });
+
+  // Work out the player's full set of picks after the changes, and check it.
+  const after = {};
+  Object.keys(mine).forEach((id) => (after[id] = { team: String(mine[id].picked_team || ''), points: Number(mine[id].points) || null }));
+  changes.forEach((c) => {
+    const id = String(c.gameId);
+    const game = gameById[id];
+    if (!game) throw new UserError('That game is not part of this week. Please reload the page.', 'stale_week');
+    const team = String(c.team || '');
+    if (team && team !== game.away_team && team !== game.home_team) throw new UserError('That team is not in this game.');
+    const points = c.points === null || c.points === '' || c.points === undefined ? null : Number(c.points);
+    if (points !== null && !(Number.isInteger(points) && points >= 1 && points <= n)) {
+      throw new UserError(`Points must be a number from 1 to ${n}.`);
+    }
+    after[id] = { team, points };
+  });
+  const used = {};
+  Object.keys(after).forEach((id) => {
+    const p = after[id].points;
+    if (p === null || !gameById[id]) return;
+    if (used[p]) throw new UserError(`${p} points is used twice. Please reload the page.`, 'conflict');
+    used[p] = true;
+  });
+
+  const now = new Date();
+  changes.forEach((c) => {
+    const id = String(c.gameId);
+    const fields = { picked_team: after[id].team, points: after[id].points === null ? '' : after[id].points, updated_at: now, updated_by: by };
+    if (mine[id]) updateRow(table, mine[id], fields);
+    else appendRecord('Picks', Object.assign({ week, player_id: playerId, game_id: id }, fields));
+  });
+  return { savedAt: now.toISOString(), after };
 }
 
 function publicGame(g) {

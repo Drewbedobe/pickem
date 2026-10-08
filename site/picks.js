@@ -4,6 +4,14 @@
 
 const saver = { pending: new Map(), inFlight: false };
 
+// The picks on screen: the signed-in player's own, or (in Commissioner Tools)
+// someone else's, in which case admin = { id, name } of that player.
+const pickCtx = { week: null, admin: null };
+
+function ctxKey(ctx) {
+  return `${ctx.admin ? ctx.admin.id : 'me'}|${ctx.week}`;
+}
+
 function hasUnsavedPicks() {
   return saver.inFlight || saver.pending.size > 0;
 }
@@ -27,8 +35,10 @@ async function showPicks() {
   }
 }
 
-function renderPicks(week) {
-  state.week = week;
+function renderPicks(week, admin = null) {
+  pickCtx.week = week;
+  pickCtx.admin = admin;
+  if (!admin) state.week = week;
   if (!week.week) {
     render(`
       <button type="button" class="back-btn" data-action="home">← Home</button>
@@ -46,10 +56,14 @@ function renderPicks(week) {
     days[days.length - 1].games.push(g);
   });
 
+  const intro = admin
+    ? `<div class="admin-banner">Editing <strong>${esc(admin.name)}'s</strong> Week ${week.week} picks as commissioner. Changes save right away, even after the deadline.</div>`
+    : '';
   render(`
-    <button type="button" class="back-btn" data-action="home">← Home</button>
-    <h1>Week ${week.week} picks</h1>
-    ${locked
+    <button type="button" class="back-btn" data-action="home">${admin ? '← Choose another player' : '← Home'}</button>
+    <h1>${admin ? `${esc(admin.name)}'s Week ${week.week} picks` : `Week ${week.week} picks`}</h1>
+    ${intro}
+    ${admin ? '' : locked
       ? `<div class="message">Picks are locked. The deadline was ${esc(week.deadlineLabel)}.</div>`
       : `<p class="lead">Tap the team you think will win each game. Then give each game points from 1 to ${n}: more points for games you're more sure about. Each number is used once.</p>
          <p class="due">Every tap saves automatically. Picks automatically submit at <strong>${esc(week.deadlineLabel)}</strong>.</p>`}
@@ -58,7 +72,7 @@ function renderPicks(week) {
       ${d.games.map((g) => gameCardHtml(g, week, locked)).join('')}
     `).join('')}
     ${locked ? '' : `
-      <button type="button" class="secondary-btn clear-all-btn" data-action="clear-all">Clear all my picks</button>
+      <button type="button" class="secondary-btn clear-all-btn" data-action="clear-all">${admin ? `Clear all of ${esc(admin.name)}'s picks` : 'Clear all my picks'}</button>
       <div class="pick-footer" role="status">
         <div id="pick-progress"></div>
         <div id="pick-notice" class="pick-notice"></div>
@@ -99,7 +113,7 @@ function teamButtonHtml(game, team, pickedTeam, locked) {
       <span class="team-name">${esc(teamNickname(team.name))}</span>
       ${team.record ? `<span class="team-record">${esc(team.record)}</span>` : ''}
       ${game.favorite === team.name && game.spread !== null ? `<span class="team-spread">Spread −${esc(game.spread)}</span>` : ''}
-      <span class="team-check">${selected ? '✓ Your pick' : ''}</span>
+      <span class="team-check">${selected ? (pickCtx.admin ? '✓ Picked' : '✓ Your pick') : ''}</span>
     </button>`;
 }
 
@@ -109,7 +123,7 @@ function bindPicks() {
     if (!target || target.disabled) return;
     const action = target.dataset.action;
     if (action === 'home') {
-      go('#/home');
+      go(pickCtx.admin ? `#/admin/picks/${pickCtx.week.week}` : '#/home');
       return;
     }
     if (action === 'clear-all') {
@@ -126,24 +140,24 @@ function bindPicks() {
 
 /** If the deadline passed while the page was open, show the locked view instead. */
 function stopIfLocked() {
-  if (!isLocked(state.week)) return false;
-  state.week.locked = true;
-  renderPicks(state.week);
+  if (!isLocked(pickCtx.week)) return false;
+  pickCtx.week.locked = true;
+  renderPicks(pickCtx.week, pickCtx.admin);
   return true;
 }
 
 function chooseTeam(gameId, team) {
-  const pick = state.week.picks[gameId] || { team: '', points: null };
+  const pick = pickCtx.week.picks[gameId] || { team: '', points: null };
   if (pick.team === team) return;
   pick.team = team;
-  state.week.picks[gameId] = pick;
+  pickCtx.week.picks[gameId] = pick;
   refreshCards([gameId]);
   setNotice('');
   queueSave([gameId]);
 }
 
 function setPoints(gameId, value) {
-  const picks = state.week.picks;
+  const picks = pickCtx.week.picks;
   const pick = picks[gameId] || { team: '', points: null };
   if ((pick.points || null) === value) return;
   const changed = [gameId];
@@ -167,8 +181,8 @@ function setPoints(gameId, value) {
 
 /** Short name for a game: the team picked, or both teams if none picked yet. */
 function gameLabel(gameId) {
-  const p = state.week.picks[gameId];
-  const g = state.week.games.find((x) => x.id === gameId);
+  const p = pickCtx.week.picks[gameId];
+  const g = pickCtx.week.games.find((x) => x.id === gameId);
   if (p && p.team) return teamNickname(p.team);
   return g ? `${teamNickname(g.away.name)}/${teamNickname(g.home.name)}` : '';
 }
@@ -183,7 +197,7 @@ function confirmClearAll() {
   sheet.className = 'sheet-backdrop';
   sheet.innerHTML = `
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
-      <h2 id="sheet-title">Clear all your Week ${state.week.week} picks?</h2>
+      <h2 id="sheet-title">${pickCtx.admin ? `Clear all of ${esc(pickCtx.admin.name)}'s` : 'Clear all your'} Week ${pickCtx.week.week} picks?</h2>
       <p class="sheet-help">This removes every team and every points number so you can start over.</p>
       <div class="sheet-actions stacked">
         <button type="button" class="big-btn danger-btn" data-sheet="yes">Yes, clear everything</button>
@@ -203,8 +217,8 @@ function confirmClearAll() {
     if (btn && btn.dataset.sheet === 'yes') {
       close();
       if (stopIfLocked()) return;
-      const ids = Object.keys(state.week.picks).filter((id) => state.week.picks[id].team || state.week.picks[id].points);
-      ids.forEach((id) => (state.week.picks[id] = { team: '', points: null }));
+      const ids = Object.keys(pickCtx.week.picks).filter((id) => pickCtx.week.picks[id].team || pickCtx.week.picks[id].points);
+      ids.forEach((id) => (pickCtx.week.picks[id] = { team: '', points: null }));
       refreshCards(ids);
       setNotice('All picks cleared.');
       if (ids.length) queueSave(ids);
@@ -218,11 +232,11 @@ function confirmClearAll() {
 }
 
 function refreshCards(gameIds) {
-  const locked = isLocked(state.week);
+  const locked = isLocked(pickCtx.week);
   gameIds.forEach((id) => {
     const card = document.querySelector(`[data-game="${CSS.escape(id)}"]`);
-    const game = state.week.games.find((g) => g.id === id);
-    if (card && game) card.outerHTML = gameCardHtml(game, state.week, locked);
+    const game = pickCtx.week.games.find((g) => g.id === id);
+    if (card && game) card.outerHTML = gameCardHtml(game, pickCtx.week, locked);
   });
   updateFooter();
 }
@@ -230,9 +244,11 @@ function refreshCards(gameIds) {
 function updateFooter() {
   const box = document.getElementById('pick-progress');
   if (!box) return;
-  const { n, done, left } = pickProgress(state.week);
+  const { n, done, left } = pickProgress(pickCtx.week);
   if (done === n) {
-    box.innerHTML = `<strong class="ok-text">All ${n} picked ✓ You're all set.</strong><br>You can change picks until ${esc(state.week.deadlineLabel)}.`;
+    box.innerHTML = pickCtx.admin
+      ? `<strong class="ok-text">All ${n} picked ✓</strong>`
+      : `<strong class="ok-text">All ${n} picked ✓ You're all set.</strong><br>You can change picks until ${esc(pickCtx.week.deadlineLabel)}.`;
   } else {
     box.innerHTML = `<strong>${done} of ${n} picked</strong>${left.length ? ` · Points left: ${left.join(', ')}` : ''}`;
   }
@@ -241,7 +257,7 @@ function updateFooter() {
 // ---- Points picker -------------------------------------------------------
 
 function openPointsPicker(gameId) {
-  const week = state.week;
+  const week = pickCtx.week;
   const game = week.games.find((g) => g.id === gameId);
   const pick = week.picks[gameId] || {};
   const n = week.games.length;
@@ -252,8 +268,9 @@ function openPointsPicker(gameId) {
     if (p.points) ownerOf[p.points] = id;
   });
 
+  const whose = pickCtx.admin ? `${pickCtx.admin.name}'s` : 'your';
   const title = pick.team
-    ? `Points for your ${teamNickname(pick.team)} pick`
+    ? `Points for ${whose} ${teamNickname(pick.team)} pick`
     : `Points for ${teamNickname(game.away.name)} at ${teamNickname(game.home.name)}`;
 
   const buttons = [];
@@ -313,24 +330,29 @@ function openPointsPicker(gameId) {
 // ---- Saving --------------------------------------------------------------
 
 function queueSave(gameIds) {
+  const ctx = { admin: pickCtx.admin, week: pickCtx.week.week };
   gameIds.forEach((id) => {
-    const p = state.week.picks[id] || {};
-    saver.pending.set(id, { team: p.team || '', points: p.points || null });
+    const p = pickCtx.week.picks[id] || {};
+    saver.pending.set(`${ctxKey(ctx)}|${id}`, { ctx, gameId: id, team: p.team || '', points: p.points || null });
   });
-  rememberWeek();
+  if (!ctx.admin) rememberWeek();
   setSaveStatus('saving');
   flushSaves();
 }
 
 async function flushSaves() {
   if (saver.inFlight || !saver.pending.size) return;
-  const week = state.week.week;
-  const changes = [...saver.pending.entries()].map(([gameId, p]) => ({ gameId, team: p.team, points: p.points }));
-  saver.pending.clear();
+  // Send one person's changes at a time.
+  const ctx = saver.pending.values().next().value.ctx;
+  const entries = [...saver.pending.entries()].filter(([, v]) => ctxKey(v.ctx) === ctxKey(ctx));
+  entries.forEach(([key]) => saver.pending.delete(key));
+  const changes = entries.map(([, v]) => ({ gameId: v.gameId, team: v.team, points: v.points }));
   saver.inFlight = true;
 
   try {
-    await api('savePicks', { token: storage.get(TOKEN_KEY), week, changes });
+    const token = storage.get(TOKEN_KEY);
+    if (ctx.admin) await api('adminSavePicks', { token, week: ctx.week, playerId: ctx.admin.id, changes });
+    else await api('savePicks', { token, week: ctx.week, changes });
     saver.inFlight = false;
     if (saver.pending.size) flushSaves();
     else setSaveStatus('saved');
@@ -338,22 +360,27 @@ async function flushSaves() {
     saver.inFlight = false;
     if (['network', 'server', 'busy'].includes(err.code)) {
       // Keep the changes (unless a newer tap replaced them) and try again shortly.
-      changes.forEach((c) => {
-        if (!saver.pending.has(c.gameId)) saver.pending.set(c.gameId, { team: c.team, points: c.points });
+      entries.forEach(([key, v]) => {
+        if (!saver.pending.has(key)) saver.pending.set(key, v);
       });
       setSaveStatus('retry');
       setTimeout(flushSaves, 4000);
       return;
     }
     // The server said no (deadline passed, or picks changed elsewhere): show what's really saved.
-    saver.pending.clear();
+    [...saver.pending.keys()].filter((k) => k.startsWith(ctxKey(ctx))).forEach((k) => saver.pending.delete(k));
     if (err.code === 'signed_out') {
       signOut();
       return;
     }
     try {
-      const fresh = await loadWeek();
-      if (location.hash === '#/picks') renderPicks(fresh);
+      if (ctx.admin) {
+        const fresh = await api('adminWeek', { token: storage.get(TOKEN_KEY), week: ctx.week, playerId: ctx.admin.id });
+        if (location.hash === `#/admin/picks/${ctx.week}/${ctx.admin.id}`) renderPicks(fresh, fresh.player);
+      } else {
+        const fresh = await loadWeek();
+        if (location.hash === '#/picks') renderPicks(fresh);
+      }
     } catch (reloadErr) {
       /* keep showing the local picks */
     }

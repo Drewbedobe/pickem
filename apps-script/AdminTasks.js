@@ -42,6 +42,24 @@ const ADMIN_TASKS = {
     });
     return taskStatus();
   },
+  /** Changes yes/no settings for a player. req: { name, isAdmin?, isPlayer?, active? } */
+  setPlayerFlags: (req) => {
+    withLock(() => {
+      const players = readTable('Players');
+      const player = findPlayerByName(players, req.name);
+      const fields = {};
+      if ('isAdmin' in req) fields.is_admin = Boolean(req.isAdmin);
+      if ('isPlayer' in req) fields.is_player = Boolean(req.isPlayer);
+      if ('active' in req) fields.active = Boolean(req.active);
+      updateRow(players, player, fields);
+    });
+    return taskStatus();
+  },
+  /** Deletes AuditLog rows by one actor (used to tidy up after testing as Test Player). req: { name } */
+  deleteAuditRows: (req) => {
+    withLock(() => deleteRowsWhere('AuditLog', (r) => String(r.actor).trim().toLowerCase() === String(req.name || '').trim().toLowerCase()));
+    return taskStatus();
+  },
   /** Removes a player's picks for one week (default: the current week). req: { name, week? } */
   clearPicks: (req) => {
     withLock(() => {

@@ -32,6 +32,11 @@ function route() {
     else showWhosPlaying();
     return;
   }
+  if (hash.startsWith('#/admin')) {
+    document.body.dataset.screen = 'admin';
+    showAdmin(hash.replace(/^#\/admin\/?/, '').split('/').filter(Boolean).map(decodeURIComponent));
+    return;
+  }
   const screen = { '#/picks': 'picks', '#/grid': 'grid', '#/standings': 'standings' }[hash] || 'home';
   document.body.dataset.screen = screen;
   if (screen === 'picks') showPicks();
@@ -112,9 +117,9 @@ async function start() {
 async function refreshSession(token) {
   try {
     const fresh = await api('me', { token });
-    const nameChanged = fresh.player.name !== state.session.player.name;
+    const changed = fresh.player.name !== state.session.player.name || fresh.player.isAdmin !== state.session.player.isAdmin;
     setSession(fresh);
-    if (nameChanged) route();
+    if (changed) route();
   } catch (err) {
     // Signed out elsewhere (e.g. the commissioner reset this device): back to sign-in.
     if (err.code === 'signed_out') signOut();

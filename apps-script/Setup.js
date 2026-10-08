@@ -42,8 +42,13 @@ const TABS = [
   },
   {
     name: 'WeeklyTotals',
-    headers: ['week', 'player_id', 'points', 'correct_picks', 'source'],
-    note: 'Weekly scores. Filled in automatically for site weeks; imported weeks have source = imported. Safe to edit.',
+    headers: ['week', 'player_id', 'points', 'correct_picks', 'source', 'note'],
+    note: 'Weekly scores. source = site rows are filled in automatically (edit picks or results instead). source = imported rows are weeks from the old spreadsheet. source = override rows are the commissioner\'s corrections and replace the automatic score.',
+  },
+  {
+    name: 'Adjustments',
+    headers: ['adjustment_id', 'player_id', 'points', 'reason', 'created_at', 'created_by'],
+    note: 'Season point adjustments added in Commissioner Tools (+ or -). Each row is added to that player\'s season total.',
   },
   {
     name: 'AuditLog',

@@ -93,7 +93,7 @@ function gridHtml(grid, viewerId) {
     <section>
       <h2>Week ${grid.week} picks${grid.final ? ' (final)' : ''}</h2>
       ${banner}
-      <p class="grid-help">Green rows are winning teams. Each column is one person; numbers are their points. Tap a name to see just their picks. Slide sideways to see everyone.</p>
+      <p class="grid-help">Green rows are winning teams. Each column is one person; numbers are their points. Tap a name to see just their picks. Slide sideways to see everyone.${players.some((p) => p.override) ? ' * = total changed by the commissioner.' : ''}</p>
       <div class="grid-wrap">
         <table class="pick-grid">
           <thead>
@@ -103,7 +103,7 @@ function gridHtml(grid, viewerId) {
             </tr>
             <tr class="totals-row">
               <th class="sticky-col corner">Points</th>
-              ${players.map((p) => `<th class="${p.id === viewerId ? 'me' : ''} ${p.points === top && top > 0 ? 'leader' : ''}">${winners.has(p.id) ? '🏆' : ''}${p.points}</th>`).join('')}
+              ${players.map((p) => `<th class="${p.id === viewerId ? 'me' : ''} ${p.points === top && top > 0 ? 'leader' : ''}">${winners.has(p.id) ? '🏆' : ''}${p.points}${p.override ? '*' : ''}</th>`).join('')}
             </tr>
           </thead>
           <tbody>${rows.join('')}</tbody>
@@ -132,7 +132,7 @@ function showPlayerPicks(playerId) {
   sheet.innerHTML = `
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
       <h2 id="sheet-title">${esc(player.name)}'s Week ${grid.week} picks</h2>
-      <p class="sheet-help">${player.points} points so far · ${player.correct} correct</p>
+      <p class="sheet-help">${player.points} points${player.override ? ` (changed by the commissioner; picks add up to ${player.autoPoints})` : ' so far'} · ${player.correct} correct</p>
       ${lines.length ? `<ul class="player-picks">${lines.join('')}</ul>` : '<p>No picks this week.</p>'}
       <div class="sheet-actions"><button type="button" class="secondary-btn" data-sheet="close">Close</button></div>
     </div>`;

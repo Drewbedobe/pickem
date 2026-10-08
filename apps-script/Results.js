@@ -3,8 +3,10 @@
  *
  * Scoring: a correct pick earns that game's points; a tie game earns nothing.
  * Weekly winner: most points, then most correct picks; still tied = co-winners.
+ * The commissioner can override a site week's total (WeeklyTotals rows with
+ * source = override) and add season adjustments (Adjustments tab).
  *
- * Privacy: a week's picks are only ever sent to browsers after its deadline.
+ * Privacy: a week's picks are only ever sent to players after its deadline.
  * The grid shows the latest locked week, which stays up until the next
  * week's deadline passes. Season totals for weeks before the site existed
  * come from WeeklyTotals rows with source = imported.
@@ -30,7 +32,7 @@ function handleGrid(req) {
       result.status = pickStatus(current, games, deadline, players, picksTable);
     }
   }
-  if (gridWeek) result.grid = weekGrid(gridWeek, players, picksTable);
+  if (gridWeek) result.grid = weekGrid(gridWeek, players, picksTable, weeklyOverrides(readTable('WeeklyTotals')));
   result.viewerId = String(viewer.player_id);
   return result;
 }
@@ -51,23 +53,17 @@ function pickStatus(week, games, deadline, players, picksTable) {
   };
 }
 
-function weekGrid(week, players, picksTable) {
+function weekGrid(week, players, picksTable, overrides) {
   const games = weekGames(week);
   const picks = picksForWeek(week, picksTable);
-  const scores = scoreWeek(games, picks);
+  const scores = effectiveScores(week, scoreWeek(games, picks), players, overrides);
   const final = games.length > 0 && games.every((g) => g.status === 'post');
   return {
     week,
     final,
     games: games.map(publicGame),
-    players: players.map((p) => ({
-      id: p.id,
-      name: p.name,
-      points: scores[p.id] ? scores[p.id].points : 0,
-      correct: scores[p.id] ? scores[p.id].correct : 0,
-      picks: picks[p.id] || {},
-    })),
-    winners: final ? weekWinners(players.map((p) => ({ id: p.id, points: scores[p.id] ? scores[p.id].points : 0, correct: scores[p.id] ? scores[p.id].correct : 0 }))) : [],
+    players: players.map((p) => Object.assign({ id: p.id, name: p.name, picks: picks[p.id] || {} }, scores[p.id])),
+    winners: final ? weekWinners(players.map((p) => Object.assign({ id: p.id }, scores[p.id]))) : [],
   };
 }
 
@@ -77,14 +73,16 @@ function handleStandings(req) {
   const players = activePlayers();
   const current = Number(config.current_week) || 0;
   const picksTable = readTable('Picks');
-  const weeks = {}; // week -> { final, scores: { playerId: { points, correct|null } } }
+  const totalsTable = readTable('WeeklyTotals');
+  const overrides = weeklyOverrides(totalsTable);
+  const weeks = {}; // week -> { final, scores: { playerId: { points, correct, override } } }
 
   // Weeks before the site: imported totals.
-  readTable('WeeklyTotals').rows.forEach((r) => {
+  totalsTable.rows.forEach((r) => {
     if (String(r.source).trim() !== 'imported' || !Number(r.week)) return;
     const w = Number(r.week);
     weeks[w] = weeks[w] || { final: true, scores: {} };
-    weeks[w].scores[String(r.player_id)] = { points: Number(r.points) || 0, correct: r.correct_picks === '' ? null : Number(r.correct_picks) };
+    weeks[w].scores[String(r.player_id)] = { points: Number(r.points) || 0, correct: 0, override: false };
   });
 
   // Weeks played on the site: scored from picks, once their deadline has passed.
@@ -93,20 +91,25 @@ function handleStandings(req) {
     if (!games.length) continue;
     const deadline = weekDeadline(games, w === current ? config : {});
     if (!deadline || new Date() < deadline) continue;
-    const scores = scoreWeek(games, picksForWeek(w, picksTable));
+    const scores = effectiveScores(w, scoreWeek(games, picksForWeek(w, picksTable)), players, overrides);
     weeks[w] = { final: games.every((g) => g.status === 'post'), scores };
   }
 
+  const adjustments = seasonAdjustments();
   const weekNumbers = Object.keys(weeks).map(Number).sort((a, b) => a - b);
   const rows = players.map((p) => {
     const byWeek = {};
+    const overridden = [];
     let total = 0;
     weekNumbers.forEach((w) => {
       const s = weeks[w].scores[p.id];
       byWeek[w] = s ? s.points : 0;
+      if (s && s.override) overridden.push(w);
       total += byWeek[w];
     });
-    return { id: p.id, name: p.name, total, weeks: byWeek };
+    const adj = adjustments[p.id] || [];
+    adj.forEach((a) => (total += a.points));
+    return { id: p.id, name: p.name, total, weeks: byWeek, overridden, adjustments: adj.map((a) => ({ points: a.points, reason: a.reason })) };
   });
   rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
   rows.forEach((r, i) => {
@@ -119,10 +122,7 @@ function handleStandings(req) {
   const weeklyWinners = weekNumbers
     .filter((w) => weeks[w].final)
     .map((w) => {
-      const entries = players.map((p) => {
-        const s = weeks[w].scores[p.id] || { points: 0, correct: 0 };
-        return { id: p.id, points: s.points, correct: s.correct || 0 };
-      });
+      const entries = players.map((p) => Object.assign({ id: p.id }, weeks[w].scores[p.id] || { points: 0, correct: 0 }));
       const ids = weekWinners(entries);
       return { week: w, points: ids.length ? entries.find((e) => e.id === ids[0]).points : 0, names: ids.map((id) => players.find((p) => p.id === id).name) };
     });
@@ -167,6 +167,43 @@ function scoreWeek(games, picks) {
   return scores;
 }
 
+/**
+ * Every player's score for a site week, with the commissioner's overrides
+ * applied: { playerId: { points, correct, autoPoints, override } }.
+ */
+function effectiveScores(week, computed, players, overrides) {
+  const out = {};
+  players.forEach((p) => {
+    const auto = computed[p.id] || { points: 0, correct: 0 };
+    const o = overrides[`${week}|${p.id}`];
+    out[p.id] = { points: o ? o.points : auto.points, correct: auto.correct, autoPoints: auto.points, override: Boolean(o) };
+  });
+  return out;
+}
+
+/** Commissioner overrides of site-week totals: { "week|playerId": { points, note } }. */
+function weeklyOverrides(totalsTable) {
+  const out = {};
+  totalsTable.rows.forEach((r) => {
+    if (String(r.source).trim() === 'override' && Number(r.week)) {
+      out[`${Number(r.week)}|${r.player_id}`] = { points: Number(r.points) || 0, note: String(r.note || '') };
+    }
+  });
+  return out;
+}
+
+/** Season adjustments: { playerId: [{ id, points, reason }] }. */
+function seasonAdjustments() {
+  const out = {};
+  readTable('Adjustments').rows.forEach((r) => {
+    if (!r.adjustment_id || !r.player_id) return;
+    const id = String(r.player_id);
+    out[id] = out[id] || [];
+    out[id].push({ id: String(r.adjustment_id), points: Number(r.points) || 0, reason: String(r.reason || '') });
+  });
+  return out;
+}
+
 /** Most points, then most correct picks; anyone still tied shares the win. */
 function weekWinners(entries) {
   if (!entries.length) return [];
@@ -175,7 +212,7 @@ function weekWinners(entries) {
   return entries.filter((e) => e.points === best.points && e.correct === best.correct).map((e) => e.id);
 }
 
-/** Saves a finished site week's totals into WeeklyTotals so they're visible in the Sheet. */
+/** Saves a finished site week's automatic totals into WeeklyTotals so they're visible in the Sheet. */
 function recordWeeklyTotals(week) {
   const games = weekGames(week);
   if (!games.length || !games.every((g) => g.status === 'post')) return;

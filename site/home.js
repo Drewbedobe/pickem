@@ -9,8 +9,10 @@ function showHome() {
       <button type="button" class="big-btn" id="go-picks">Make My Picks</button>
       <button type="button" class="big-btn" id="go-grid">This Week's Picks</button>
       <button type="button" class="big-btn" id="go-standings">Season Standings</button>
+      ${me.isAdmin ? '<button type="button" class="big-btn admin-btn" id="go-admin">Commissioner Tools</button>' : ''}
     </nav>
   `);
+  if (me.isAdmin) document.getElementById('go-admin').addEventListener('click', () => go('#/admin'));
   document.getElementById('go-picks').addEventListener('click', () => go('#/picks'));
   document.getElementById('go-grid').addEventListener('click', () => go('#/grid'));
   document.getElementById('go-standings').addEventListener('click', () => go('#/standings'));

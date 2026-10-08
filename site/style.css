@@ -413,3 +413,47 @@ body.sheet-open { overflow: hidden; }
   body[data-screen="grid"] main,
   body[data-screen="standings"] main { max-width: 1100px; }
 }
+
+/* ---- Commissioner Tools ---- */
+.admin-btn { background: #3d3d3d; }
+.admin-btn:active { background: #1f1f1f; }
+.admin-banner {
+  background: #fff4e5; border: 2px solid #c77700; border-radius: var(--radius);
+  padding: 12px 14px; margin-bottom: 12px; font-size: 1.05rem;
+}
+.admin-list { list-style: none; padding: 0; margin: 0 0 24px; }
+.admin-list li {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 8px;
+}
+.admin-list .name { flex: 1; font-size: 1.15rem; font-weight: 700; }
+.admin-list .total { font-size: 1.25rem; font-weight: 800; }
+.admin-row-btn {
+  display: flex; align-items: center; width: 100%; gap: 10px; min-height: 44px;
+  background: none; border: none; padding: 0; color: var(--text); text-align: left;
+}
+.row-note { width: 100%; color: var(--muted); font-size: 0.95rem; }
+.small-btn {
+  min-height: 44px; padding: 6px 12px; border: 2px solid var(--brand); border-radius: 10px;
+  background: var(--surface); color: var(--brand); font-weight: 700; font-size: 1rem;
+}
+.small-btn-space { width: 0; }
+.field-label { display: block; font-weight: 700; margin: 12px 0 4px; }
+.text-field {
+  display: block; width: 100%; min-height: 52px; padding: 10px 12px;
+  border: 2px solid var(--border); border-radius: 10px; background: var(--surface);
+  font: inherit; font-size: 1.2rem; color: var(--text);
+}
+.text-field:focus { outline: 3px solid var(--brand); outline-offset: 1px; }
+main > .big-btn { margin-top: 16px; }
+.result-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; }
+.result-btn {
+  min-height: 52px; padding: 6px 8px; border: 2px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--text); font-weight: 700;
+}
+.result-btn.chosen { border-color: var(--ok); background: var(--ok-bg); color: var(--ok); }
+.audit-log { list-style: none; padding: 0; font-size: 0.95rem; }
+.audit-log li { padding: 8px 0; border-bottom: 1px solid #e3e6ea; }
+.audit-log .when { color: var(--muted); }
+.week-chip.adjust { background: #eaf1fb; }
