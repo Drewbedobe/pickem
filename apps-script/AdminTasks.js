@@ -23,6 +23,15 @@ const ADMIN_TASKS = {
     return taskStatus();
   },
   status: () => taskStatus(),
+  /**
+   * Removes the timers owned by whichever account this deployment runs as.
+   * Used when moving the site to a new Google account: run it through the old
+   * account's deployment so the old account stops syncing.
+   */
+  removeMyTriggers: () => {
+    ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
+    return taskStatus();
+  },
   /** Clears a player's PIN and signs out all their devices. req: { name } */
   resetPin: (req) => {
     withLock(() => {
