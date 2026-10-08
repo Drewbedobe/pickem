@@ -259,6 +259,17 @@ function handleAdminSetDeadline(req) {
   });
 }
 
+// ---- Email the spreadsheet ---------------------------------------------------
+
+/** Emails a week's picks spreadsheet to the commissioner right now. */
+function handleAdminEmailSheet(req) {
+  const admin = requireAdmin(req.token);
+  const week = checkSiteWeek(req.week);
+  const sent = emailWeekWorkbook(week);
+  withLock(() => logAudit(admin, 'Emailed spreadsheet', `Week ${week}: ${sent}`));
+  return { sent };
+}
+
 // ---- Helpers -----------------------------------------------------------------
 
 /** Weeks played on the site (have games), up to the current week, newest first. */

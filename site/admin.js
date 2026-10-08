@@ -77,6 +77,8 @@ async function adminHome() {
       <button type="button" class="big-btn" data-go="#/admin/totals">Fix weekly totals</button>
       <button type="button" class="big-btn" data-go="#/admin/adjust">Season adjustments</button>
       <button type="button" class="big-btn" data-go="#/admin/results">Fix a game result</button>
+      <button type="button" class="big-btn" data-email>Email me Week ${esc(data.currentWeek)}'s spreadsheet
+        <small>It's also emailed automatically after each deadline</small></button>
       <button type="button" class="big-btn" data-go="#/admin/deadline">Change the deadline
         <small>Week ${esc(data.currentWeek)}: ${esc(data.deadlineLabel)}${data.deadlineOverridden ? ' (changed)' : ''}</small></button>
     </nav>
@@ -85,7 +87,18 @@ async function adminHome() {
       ? `<ul class="audit-log">${data.log.map((l) => `<li><span class="when">${esc(l.when)}</span> <strong>${esc(l.action)}</strong>: ${esc(l.details)}</li>`).join('')}</ul>`
       : '<p>No changes yet.</p>'}
   `);
-  bindAdmin();
+  bindAdmin(async (e) => {
+    if (!e.target.closest('[data-email]')) return;
+    const { value } = await showSheet({
+      title: `Email Week ${data.currentWeek}'s spreadsheet?`,
+      body: `<p class="sheet-help">An Excel file with everyone's Week ${data.currentWeek} picks so far will be sent to your email in a minute or two.</p>`,
+      buttons: [{ label: 'Yes, email it', value: 'yes', kind: 'primary' }, { label: 'No, go back', value: 'no', kind: 'secondary' }],
+    });
+    if (value === 'yes' && (await adminDo('adminEmailSheet', { week: data.currentWeek }))) {
+      await showSheet({ title: 'Sent! Check your email.', buttons: [{ label: 'OK', value: 'ok', kind: 'secondary' }] });
+      adminHome();
+    }
+  });
 }
 
 async function overview() {

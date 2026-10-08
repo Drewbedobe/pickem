@@ -23,6 +23,13 @@ const ADMIN_TASKS = {
     return taskStatus();
   },
   status: () => taskStatus(),
+  /** Emails a week's spreadsheet to the commissioner now. req: { week } */
+  emailWeek: (req) => ({ sent: emailWeekWorkbook(Number(req.week) || Number(getConfig().current_week)) }),
+  /** Builds a week's spreadsheet and returns it (base64) so it can be checked on a computer. req: { week } */
+  exportWeek: (req) => {
+    const blob = buildWeekWorkbook(Number(req.week) || Number(getConfig().current_week));
+    return { name: blob.getName(), base64: Utilities.base64Encode(blob.getBytes()) };
+  },
   /**
    * Removes the timers owned by whichever account this deployment runs as.
    * Used when moving the site to a new Google account: run it through the old
@@ -144,6 +151,7 @@ const ADMIN_TASKS = {
     withLock(() => {
       setConfigValue('rules_text', PRIVATE_SEED.rulesText);
       setConfigValue('commissioner_name', PRIVATE_SEED.commissionerName);
+      if (PRIVATE_SEED.commissionerEmail) setConfigValue('commissioner_email', PRIVATE_SEED.commissionerEmail);
     });
     return taskStatus();
   },

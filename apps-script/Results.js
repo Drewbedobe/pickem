@@ -73,30 +73,7 @@ function handleStandings(req) {
   requirePlayer(req.token);
   const config = getConfig();
   const players = activePlayers();
-  const current = Number(config.current_week) || 0;
-  const picksTable = readTable('Picks');
-  const totalsTable = readTable('WeeklyTotals');
-  const overrides = weeklyOverrides(totalsTable);
-  const weeks = {}; // week -> { final, scores: { playerId: { points, correct, override } } }
-
-  // Weeks before the site: imported totals.
-  totalsTable.rows.forEach((r) => {
-    if (String(r.source).trim() !== 'imported' || !Number(r.week)) return;
-    const w = Number(r.week);
-    weeks[w] = weeks[w] || { final: true, scores: {} };
-    weeks[w].scores[String(r.player_id)] = { points: Number(r.points) || 0, correct: 0, override: false };
-  });
-
-  // Weeks played on the site: scored from picks, once their deadline has passed.
-  for (let w = 1; w <= current; w++) {
-    const games = weekGames(w);
-    if (!games.length) continue;
-    const deadline = weekDeadline(games, w === current ? config : {});
-    if (!deadline || new Date() < deadline) continue;
-    const scores = effectiveScores(w, scoreWeek(games, picksForWeek(w, picksTable)), players, overrides);
-    weeks[w] = { final: games.every((g) => g.status === 'post'), scores };
-  }
-
+  const weeks = seasonWeeks(config, players, Number(config.current_week) || 0);
   const adjustments = seasonAdjustments();
   const weekNumbers = Object.keys(weeks).map(Number).sort((a, b) => a - b);
   const rows = players.map((p) => {
@@ -134,6 +111,37 @@ function handleStandings(req) {
     players: rows,
     weeklyWinners,
   };
+}
+
+/**
+ * Every week's scores that count toward the season, up to and including
+ * maxWeek: { week: { final, scores: { playerId: { points, correct, override } } } }.
+ * Imported weeks come from WeeklyTotals; site weeks are scored from picks once
+ * their deadline has passed, with the commissioner's overrides applied.
+ */
+function seasonWeeks(config, players, maxWeek) {
+  const current = Number(config.current_week) || 0;
+  const picksTable = readTable('Picks');
+  const totalsTable = readTable('WeeklyTotals');
+  const overrides = weeklyOverrides(totalsTable);
+  const weeks = {};
+
+  totalsTable.rows.forEach((r) => {
+    if (String(r.source).trim() !== 'imported' || !Number(r.week) || Number(r.week) > maxWeek) return;
+    const w = Number(r.week);
+    weeks[w] = weeks[w] || { final: true, scores: {} };
+    weeks[w].scores[String(r.player_id)] = { points: Number(r.points) || 0, correct: 0, override: false };
+  });
+
+  for (let w = 1; w <= Math.min(current, maxWeek); w++) {
+    const games = weekGames(w);
+    if (!games.length) continue;
+    const deadline = weekDeadline(games, w === current ? config : {});
+    if (!deadline || new Date() < deadline) continue;
+    const scores = effectiveScores(w, scoreWeek(games, picksForWeek(w, picksTable)), players, overrides);
+    weeks[w] = { final: games.every((g) => g.status === 'post'), scores };
+  }
+  return weeks;
 }
 
 /** { playerId: { gameId: { team, points } } } for one week. */

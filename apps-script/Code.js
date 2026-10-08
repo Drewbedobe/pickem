@@ -34,6 +34,7 @@ const ACTIONS = {
   adminGames: handleAdminGames,
   adminSetResult: handleAdminSetResult,
   adminSetDeadline: handleAdminSetDeadline,
+  adminEmailSheet: handleAdminEmailSheet,
 };
 
 function doGet() {

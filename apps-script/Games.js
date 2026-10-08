@@ -29,6 +29,13 @@ function syncTick() {
   if (!week) return;
   withLock(() => syncWeekGames(week));
 
+  // After the deadline, email the week's spreadsheet to the commissioner (once).
+  try {
+    emailAfterDeadline();
+  } catch (err) {
+    console.error('Emailing the weekly spreadsheet failed: ' + err);
+  }
+
   // Last week may still have games finishing (e.g. if the week was moved on by hand).
   const previous = weekGames(week - 1);
   if (previous.some((g) => g.status !== 'post')) withLock(() => syncWeekGames(week - 1));
