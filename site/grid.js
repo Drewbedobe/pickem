@@ -34,6 +34,9 @@ function renderGrid(data) {
 }
 
 function statusHtml(status, viewerId) {
+  if (status.opensLabel) {
+    return `<section class="status-block"><h2>Week ${status.week}</h2><p>Week ${status.week} picks open <strong>${esc(status.opensLabel)}</strong>.</p></section>`;
+  }
   const players = status.players.slice().sort((a, b) => a.name.localeCompare(b.name));
   const name = (p) => (p.id === viewerId ? `<strong>${esc(p.name)} (you)</strong>` : esc(p.name));
   const done = players.filter((p) => p.done === status.n);

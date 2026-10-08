@@ -45,10 +45,12 @@ function pickStatus(week, games, deadline, players, picksTable) {
       done[String(p.player_id)] = (done[String(p.player_id)] || 0) + 1;
     }
   });
+  const opens = weekOpens(games);
   return {
     week,
     n: games.length,
     deadlineLabel: deadline ? Utilities.formatDate(deadline, TZ, "EEE MMM d, h:mm a 'CT'") : '',
+    opensLabel: opens && new Date() < opens ? Utilities.formatDate(opens, TZ, "EEE MMM d, h:mm a 'CT'") : '',
     players: players.map((p) => ({ id: p.id, name: p.name, done: done[p.id] || 0 })),
   };
 }

@@ -24,6 +24,11 @@ function rememberWeek() {
   if (state.week && state.session) storage.set(WEEK_KEY, JSON.stringify({ playerId: state.session.player.id, data: state.week }));
 }
 
+/** False before the week's picks open (6:00 AM CT Tuesday). */
+function isOpen(week) {
+  return !week.opens || Date.now() >= Date.parse(week.opens);
+}
+
 function isLocked(week) {
   return Boolean(week.locked || (week.deadline && Date.now() >= Date.parse(week.deadline)));
 }

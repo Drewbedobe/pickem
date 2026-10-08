@@ -171,7 +171,9 @@ function taskStatus() {
   return {
     currentWeek: week,
     games: games.length,
+    opens: week && weekOpens(games) ? Utilities.formatDate(weekOpens(games), TZ, "EEE MMM d, h:mm a 'CT'") : null,
     deadline: deadline ? Utilities.formatDate(deadline, TZ, "EEE MMM d, h:mm a 'CT'") : null,
+    discardPicksWeek: Number(config.discard_picks_week) || null,
     players: readTable('Players').rows.filter((p) => isTrue(p.active) && isTrue(p.is_player)).length,
     timers: ScriptApp.getProjectTriggers().map((t) => t.getHandlerFunction()),
   };

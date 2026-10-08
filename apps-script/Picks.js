@@ -12,6 +12,7 @@ function handleWeek(req) {
 
   const games = weekGames(week);
   const deadline = weekDeadline(games, config);
+  const opens = weekOpens(games);
   const picks = {};
   readTable('Picks').rows.forEach((p) => {
     if (Number(p.week) === week && String(p.player_id) === String(player.player_id)) {
@@ -24,6 +25,8 @@ function handleWeek(req) {
     deadline: deadline ? deadline.toISOString() : null,
     deadlineLabel: deadline ? Utilities.formatDate(deadline, TZ, "EEE MMM d, h:mm a 'CT'") : '',
     locked: Boolean(deadline && new Date() >= deadline),
+    opens: opens ? opens.toISOString() : null,
+    opensLabel: opens ? Utilities.formatDate(opens, TZ, "EEE MMM d, h:mm a 'CT'") : '',
     games: games.map(publicGame),
     picks,
   };
@@ -49,6 +52,10 @@ function handleSavePicks(req) {
     const deadline = weekDeadline(games, config);
     if (deadline && new Date() >= deadline) {
       throw new UserError('Picks are locked. The deadline has passed.', 'locked');
+    }
+    const opens = weekOpens(games);
+    if (opens && new Date() < opens) {
+      throw new UserError(`Week ${week} picks open ${Utilities.formatDate(opens, TZ, "EEE MMM d 'at' h:mm a 'CT'")}.`, 'not_open');
     }
     return applyPickChanges(week, games, player.player_id, changes, player.player_id);
   });

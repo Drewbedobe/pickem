@@ -47,6 +47,15 @@ function renderPicks(week, admin = null) {
     bindPicks();
     return;
   }
+  if (!admin && !isOpen(week)) {
+    render(`
+      <button type="button" class="back-btn" data-action="home">← Home</button>
+      <h1>Week ${week.week} picks</h1>
+      <div class="message">Week ${week.week} picks open <strong>${esc(week.opensLabel)}</strong>. Check back then!</div>
+    `);
+    bindPicks();
+    return;
+  }
   const locked = isLocked(week);
   const n = week.games.length;
 

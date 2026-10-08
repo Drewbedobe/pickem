@@ -9,7 +9,7 @@ const TABS = [
   {
     name: 'Config',
     headers: ['key', 'value'],
-    note: 'Settings for the site. Safe to edit values in column B. Do not rename keys in column A.\n\ncurrent_week: the week players are picking. Moves to the next week automatically once every game is final.\n\ndeadline_override: leave blank for the normal deadline (6:00 AM CT on the day of the first game), or enter a date and time to change it for the current week only.',
+    note: 'Settings for the site. Safe to edit values in column B. Do not rename keys in column A.\n\ncurrent_week: the week players are picking. Moves to the next week automatically once every game is final.\n\ndeadline_override: leave blank for the normal deadline (12:00 PM CT on the day of the first game), or enter a date and time to change it for the current week only.\n\ndiscard_picks_week: a test week number; its picks are deleted automatically when that week ends.',
     rows: [
       ['season', 2026],
       ['commissioner_name', ''],
@@ -18,6 +18,7 @@ const TABS = [
       ['rules_text', ''],
       ['admin_pin_hash', ''],
       ['admin_pin_salt', ''],
+      ['discard_picks_week', ''],
     ],
   },
   {

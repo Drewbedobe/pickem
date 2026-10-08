@@ -30,6 +30,7 @@ function weekStatusHtml(week) {
   if (!week.week) return "This week's games aren't ready yet. Check back soon.";
   const { n, done } = pickProgress(week);
   if (isLocked(week)) return `Week ${week.week} picks are locked.`;
+  if (!isOpen(week)) return `Week ${week.week} picks open <strong>${esc(week.opensLabel)}</strong>.`;
   const due = `Picks are due <strong>${esc(week.deadlineLabel)}</strong>.`;
   if (done === n) return `<span class="ok-text">Week ${week.week}: All ${n} picked ✓</span><br>You can change picks until ${esc(week.deadlineLabel)}.`;
   if (done === 0) return `Week ${week.week}: Not started.<br>${due}`;

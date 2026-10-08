@@ -313,11 +313,11 @@ async function adminDeadline() {
   render(`
     ${adminBack('#/admin', 'Commissioner Tools')}
     <h1>Week ${esc(data.currentWeek)} deadline</h1>
-    <div class="message">Picks are due <strong>${esc(data.deadlineLabel)}</strong>${data.deadlineOverridden ? ' (you changed this)' : ' (the normal deadline: 6:00 AM CT on the day of the first game)'}.</div>
+    <div class="message">Picks are due <strong>${esc(data.deadlineLabel)}</strong>${data.deadlineOverridden ? ' (you changed this)' : ' (the normal deadline: 12:00 PM CT on the day of the first game)'}.</div>
     <label class="field-label" for="f-date">New date</label>
     <input id="f-date" class="text-field" type="date">
     <label class="field-label" for="f-time">New time (Central)</label>
-    <input id="f-time" class="text-field" type="time" value="06:00">
+    <input id="f-time" class="text-field" type="time" value="12:00">
     <button type="button" class="big-btn" data-save>Save new deadline</button>
     ${data.deadlineOverridden ? '<button type="button" class="secondary-btn clear-all-btn" data-normal>Go back to the normal deadline</button>' : ''}
     <p class="help">A changed deadline only applies to this week. Next week goes back to normal automatically.</p>

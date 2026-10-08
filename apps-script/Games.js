@@ -3,6 +3,9 @@
  * A timer runs syncTick() every 15 minutes: it refreshes the current week's
  * games and, once every game is final, moves on to the next week.
  *
+ * Picks open 6:00 AM CT on the Tuesday of each week and are due 12:00 PM CT
+ * on the day of the first game (see weekOpens / weekDeadline).
+ *
  * Kickoff times, records and spreads stop updating at the pick deadline so
  * everyone sees what they picked against. Scores and winners keep updating.
  * Hand edits: winner_override (team name or TIE) always beats ESPN's result.
@@ -33,9 +36,15 @@ function syncTick() {
 
   const games = weekGames(week);
   const allFinal = games.length > 0 && games.every((g) => g.status === 'post');
-  if (allFinal) withLock(() => recordWeeklyTotals(week));
+  if (allFinal && Number(config.discard_picks_week) !== week) withLock(() => recordWeeklyTotals(week));
   if (allFinal && week < LAST_REGULAR_SEASON_WEEK) {
     withLock(() => {
+      // A test week's picks are thrown away once it's over (Config: discard_picks_week).
+      if (Number(getConfig().discard_picks_week) === week) {
+        deleteRowsWhere('Picks', (p) => Number(p.week) === week);
+        deleteRowsWhere('WeeklyTotals', (r) => Number(r.week) === week && String(r.source).trim() === 'site');
+        setConfigValue('discard_picks_week', '');
+      }
       setConfigValue('current_week', week + 1);
       setConfigValue('deadline_override', '');
       syncWeekGames(week + 1);
@@ -144,13 +153,32 @@ function weekGames(week) {
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
 }
 
-/** 6:00 AM Central on the day of the week's first game, unless Config has an override. */
+/**
+ * Picks are due 12:00 PM Central on the day of the week's first game (or at
+ * that first kickoff, if it's earlier), unless Config has an override.
+ */
 function weekDeadline(games, config) {
   if (config.deadline_override instanceof Date) return config.deadline_override;
   if (!games.length) return null;
-  const first = games.reduce((a, b) => (new Date(a.kickoff) <= new Date(b.kickoff) ? a : b));
-  const day = Utilities.formatDate(new Date(first.kickoff), TZ, 'yyyy-MM-dd');
-  return Utilities.parseDate(day + ' 06:00', TZ, 'yyyy-MM-dd HH:mm');
+  const first = firstKickoff(games);
+  const day = Utilities.formatDate(first, TZ, 'yyyy-MM-dd');
+  const noon = Utilities.parseDate(day + ' 12:00', TZ, 'yyyy-MM-dd HH:mm');
+  return first < noon ? first : noon;
+}
+
+/** Picks open 6:00 AM Central on the Tuesday of the week (on or before the first game's day). */
+function weekOpens(games) {
+  if (!games.length) return null;
+  const first = firstKickoff(games);
+  const dayOfWeek = Number(Utilities.formatDate(first, TZ, 'u')); // 1 = Monday … 7 = Sunday
+  const daysBack = (dayOfWeek - 2 + 7) % 7;
+  const middayThatDay = Utilities.parseDate(Utilities.formatDate(first, TZ, 'yyyy-MM-dd') + ' 12:00', TZ, 'yyyy-MM-dd HH:mm');
+  const tuesday = Utilities.formatDate(new Date(middayThatDay.getTime() - daysBack * 86400000), TZ, 'yyyy-MM-dd');
+  return Utilities.parseDate(tuesday + ' 06:00', TZ, 'yyyy-MM-dd HH:mm');
+}
+
+function firstKickoff(games) {
+  return games.map((g) => new Date(g.kickoff)).reduce((a, b) => (a <= b ? a : b));
 }
 
 /** The result used for scoring: Jared's override if present, else ESPN's. */
